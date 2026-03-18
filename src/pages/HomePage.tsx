@@ -18,7 +18,7 @@ export default function HomePage() {
   const [loadingSample, setLoadingSample] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
-  const { canInstall, install } = usePWAInstall();
+  const { canInstall, isIOS, install } = usePWAInstall();
 
   const hasData = songs.length > 0;
 
@@ -60,7 +60,7 @@ export default function HomePage() {
         <p className="text-sm text-surface-400 mt-1">
           Discover and curate your music library
         </p>
-        {canInstall && (
+        {canInstall && !isIOS && (
           <button
             onClick={install}
             className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-accent-600/20"
@@ -68,6 +68,12 @@ export default function HomePage() {
             <Download size={16} />
             Install App
           </button>
+        )}
+        {canInstall && isIOS && (
+          <div className="mt-4 px-4 py-3 bg-surface-800/80 border border-surface-700/50 rounded-xl text-xs text-surface-300 text-center space-y-1">
+            <p className="font-medium text-surface-100">Add to Home Screen</p>
+            <p>Open in <span className="text-accent-400 font-medium">Safari</span>, tap the <span className="text-accent-400">Share</span> button, then <span className="text-accent-400">&quot;Add to Home Screen&quot;</span></p>
+          </div>
         )}
       </motion.div>
 

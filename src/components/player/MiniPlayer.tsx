@@ -1,8 +1,10 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Volume2, VolumeX, X } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, X, Repeat, Repeat1, ListMusic, Shuffle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { usePlayerStore } from '../../store/playerStore';
 import { useSongStore } from '../../store/songStore';
+import { useSettingsStore } from '../../store/settingsStore';
 
 declare global {
   interface Window {
@@ -35,19 +37,104 @@ function loadYouTubeAPI(): Promise<void> {
   });
 }
 
+function formatTime(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
 export default function MiniPlayer() {
-  const { currentVideoId, currentSongIndex, isPlaying, volume, setPlaying, setVolume, stop } = usePlayerStore();
+  const { currentVideoId, currentSongIndex, isPlaying, volume, setPlaying, setVolume, setCurrentSong, stop } = usePlayerStore();
   const songs = useSongStore((s) => s.songs);
+  const { loopMode: _loopMode, autoContinue: _autoContinue, shufflePlayback: _shufflePlayback, cycleLoopMode, toggleAutoContinue, toggleShufflePlayback } = useSettingsStore();
   const playerRef = useRef<YT.Player | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const activeVideoRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [seeking, setSeeking] = useState(false);
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const handleSongEndRef = useRef<() => void>(() => {});
 
   const currentSong = songs.find((s) => s.index === currentSongIndex);
+  const location = useLocation();
+  const isSwipePage = location.pathname === '/swipe';
+
+  // On swipe page, force these off programmatically
+  const loopMode = isSwipePage ? 'off' as const : _loopMode;
+  const autoContinue = isSwipePage ? false : _autoContinue;
+  const shufflePlayback = isSwipePage ? false : _shufflePlayback;
+
+  // Progress polling
+  useEffect(() => {
+    if (progressInterval.current) clearInterval(progressInterval.current);
+    if (isPlaying && playerRef.current) {
+      progressInterval.current = setInterval(() => {
+        if (!playerRef.current || seeking) return;
+        try {
+          const t = playerRef.current.getCurrentTime();
+          const d = playerRef.current.getDuration();
+          setProgress(t);
+          if (d > 0) setDuration(d);
+        } catch { /* player not ready */ }
+      }, 500);
+    }
+    return () => {
+      if (progressInterval.current) clearInterval(progressInterval.current);
+    };
+  }, [isPlaying, currentVideoId, seeking]);
+
+  const handleSongEnd = useCallback(() => {
+    // Loop one: replay the same song
+    if (loopMode === 'one') {
+      try { playerRef.current?.seekTo(0, true); playerRef.current?.playVideo(); } catch { /* */ }
+      return;
+    }
+
+    // Auto-continue or loop all: go to next song
+    if (autoContinue || loopMode === 'all') {
+      const playableSongs = songs.filter((s) => s.videoId);
+      if (playableSongs.length === 0) { setPlaying(false); return; }
+
+      const currentIdx = playableSongs.findIndex((s) => s.index === currentSongIndex);
+      let nextSong;
+
+      if (shufflePlayback) {
+        const others = playableSongs.filter((_, i) => i !== currentIdx);
+        nextSong = others.length > 0
+          ? others[Math.floor(Math.random() * others.length)]
+          : playableSongs[0];
+      } else {
+        const nextIdx = currentIdx + 1;
+        if (nextIdx < playableSongs.length) {
+          nextSong = playableSongs[nextIdx];
+        } else if (loopMode === 'all') {
+          nextSong = playableSongs[0]; // wrap around
+        }
+      }
+
+      if (nextSong) {
+        setCurrentSong(nextSong.videoId, nextSong.index, true);
+      } else {
+        setPlaying(false);
+      }
+      return;
+    }
+
+    setPlaying(false);
+  }, [loopMode, autoContinue, shufflePlayback, songs, currentSongIndex, setPlaying, setCurrentSong]);
+
+  // Keep ref in sync so the YT player callback always calls the latest version
+  useEffect(() => {
+    handleSongEndRef.current = handleSongEnd;
+  }, [handleSongEnd]);
 
   const initPlayer = useCallback(async (videoId: string, shouldPlay: boolean) => {
     activeVideoRef.current = videoId;
     loadingRef.current = true;
+    setProgress(0);
+    setDuration(0);
 
     await loadYouTubeAPI();
 
@@ -60,7 +147,6 @@ export default function MiniPlayer() {
       } else {
         playerRef.current.cueVideoById(videoId);
       }
-      // loadingRef stays true — cleared by onStateChange when PLAYING/CUED fires
       return;
     }
 
@@ -80,33 +166,54 @@ export default function MiniPlayer() {
           loadingRef.current = false;
         },
         onStateChange: (event: YT.OnStateChangeEvent) => {
-          // PLAYING / CUED mark the end of a video transition
           if (event.data === window.YT.PlayerState.PLAYING) {
             loadingRef.current = false;
             setPlaying(true);
+            try {
+              const d = playerRef.current?.getDuration();
+              if (d && d > 0) setDuration(d);
+            } catch { /* */ }
             return;
           }
           if (event.data === window.YT.PlayerState.CUED) {
             loadingRef.current = false;
+            try {
+              const d = playerRef.current?.getDuration();
+              if (d && d > 0) setDuration(d);
+            } catch { /* */ }
             return;
           }
-          // Ignore stale events (e.g. old video's PAUSED) during transitions
-          if (loadingRef.current) return;
+          if (loadingRef.current) {
+            // On mobile, autoplay may be blocked — player goes to PAUSED
+            // instead of PLAYING. Verify after a delay to sync UI state.
+            if (event.data === window.YT.PlayerState.PAUSED) {
+              setTimeout(() => {
+                if (!playerRef.current) return;
+                try {
+                  const s = playerRef.current.getPlayerState();
+                  if (s !== window.YT.PlayerState.PLAYING && s !== window.YT.PlayerState.BUFFERING) {
+                    loadingRef.current = false;
+                    setPlaying(false);
+                  }
+                } catch { /* */ }
+              }, 600);
+            }
+            return;
+          }
           if (event.data === window.YT.PlayerState.ENDED) {
-            setPlaying(false);
+            handleSongEndRef.current();
           } else if (event.data === window.YT.PlayerState.PAUSED) {
             setPlaying(false);
           }
         },
       },
     });
-  }, [setPlaying]);
+  }, [setPlaying, handleSongEnd]);
 
   useEffect(() => {
     if (currentVideoId) {
       initPlayer(currentVideoId, isPlaying);
     }
-    // Only react to videoId changes — isPlaying is handled by the separate effect below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
 
@@ -134,7 +241,22 @@ export default function MiniPlayer() {
     stop();
   };
 
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const t = Number(e.target.value);
+    setProgress(t);
+  };
+
+  const commitSeek = () => {
+    setSeeking(false);
+    if (playerRef.current) {
+      try { playerRef.current.seekTo(progress, true); } catch { /* */ }
+    }
+  };
+
   if (!currentVideoId) return <div id="yt-player" className="hidden" />;
+
+  const loopIcon = loopMode === 'one' ? <Repeat1 size={14} /> : <Repeat size={14} />;
+  const loopActive = loopMode !== 'off';
 
   return (
     <>
@@ -142,56 +264,107 @@ export default function MiniPlayer() {
       <AnimatePresence>
         <motion.div
           ref={containerRef}
-          initial={{ y: 80 }}
+          initial={{ y: 100 }}
           animate={{ y: 0 }}
-          exit={{ y: 80 }}
-          className="fixed bottom-16 left-0 right-0 z-30 px-2"
+          exit={{ y: 100 }}
+          className="fixed left-0 right-0 z-30 px-2"
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
         >
-          <div className="max-w-lg mx-auto bg-surface-800/95 backdrop-blur-md border border-surface-700/50 rounded-2xl p-3 flex items-center gap-2 shadow-2xl touch-none">
-            <button
-              onClick={handleStop}
-              className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors shrink-0"
-            >
-              <X size={16} />
-            </button>
-            {currentSong?.thumbnail && (
-              <img
-                src={currentSong.thumbnail}
-                alt=""
-                className="w-10 h-10 rounded-lg object-cover shrink-0"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-surface-100 truncate">
-                {currentSong?.title ?? 'Playing...'}
-              </p>
-              <p className="text-xs text-surface-400 truncate">
-                {currentSong?.primaryArtist}
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={() => setVolume(volume === 0 ? 70 : 0)}
-                className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
-              >
-                {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              </button>
+          <div className="max-w-lg mx-auto bg-surface-800/95 backdrop-blur-md border border-surface-700/50 rounded-2xl shadow-2xl touch-none overflow-hidden">
+            {/* Seek bar */}
+            <div className="px-3 pt-2 pb-0">
               <input
                 type="range"
                 min={0}
-                max={100}
-                value={volume}
-                onChange={(e) => setVolume(Number(e.target.value))}
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-                className="w-16 accent-accent-500 touch-none"
+                max={duration || 1}
+                step={0.5}
+                value={progress}
+                onChange={handleSeek}
+                onMouseDown={() => setSeeking(true)}
+                onMouseUp={() => commitSeek()}
+                onTouchStart={(e) => { e.stopPropagation(); setSeeking(true); }}
+                onTouchEnd={() => commitSeek()}
+                className="w-full h-1 accent-accent-500 touch-none cursor-pointer"
+                style={{ WebkitAppearance: 'none', appearance: 'none' }}
               />
+              <div className="flex justify-between text-[9px] text-surface-500 mt-0.5">
+                <span>{formatTime(progress)}</span>
+                <span>{duration > 0 ? formatTime(duration) : '--:--'}</span>
+              </div>
+            </div>
+
+            {/* Main controls row */}
+            <div className="px-3 pb-2.5 pt-1 flex items-center gap-2">
               <button
-                onClick={() => setPlaying(!isPlaying)}
-                className="p-2 bg-accent-600 hover:bg-accent-500 rounded-full text-white transition-colors"
+                onClick={handleStop}
+                className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors shrink-0"
               >
-                {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                <X size={16} />
               </button>
+              {currentSong?.thumbnail && (
+                <img
+                  src={currentSong.thumbnail}
+                  alt=""
+                  className="w-10 h-10 rounded-lg object-cover shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-surface-100 truncate">
+                  {currentSong?.title ?? 'Playing...'}
+                </p>
+                <p className="text-xs text-surface-400 truncate">
+                  {currentSong?.primaryArtist}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {!isSwipePage && (
+                  <>
+                    <button
+                      onClick={cycleLoopMode}
+                      className={`p-1.5 rounded transition-colors ${loopActive ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'}`}
+                      title={`Loop: ${loopMode}`}
+                    >
+                      {loopIcon}
+                    </button>
+                    <button
+                      onClick={toggleAutoContinue}
+                      className={`p-1.5 rounded transition-colors ${autoContinue ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'}`}
+                      title={`Auto-continue: ${autoContinue ? 'on' : 'off'}`}
+                    >
+                      <ListMusic size={14} />
+                    </button>
+                    <button
+                      onClick={toggleShufflePlayback}
+                      className={`p-1.5 rounded transition-colors ${shufflePlayback ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'}`}
+                      title={`Shuffle: ${shufflePlayback ? 'on' : 'off'}`}
+                    >
+                      <Shuffle size={14} />
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => setVolume(volume === 0 ? 70 : 0)}
+                  className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
+                >
+                  {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={volume}
+                  onChange={(e) => setVolume(Number(e.target.value))}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onTouchMove={(e) => e.stopPropagation()}
+                  className="w-14 accent-accent-500 touch-none"
+                />
+                <button
+                  onClick={() => setPlaying(!isPlaying)}
+                  className="p-2 bg-accent-600 hover:bg-accent-500 rounded-full text-white transition-colors"
+                >
+                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                </button>
+              </div>
             </div>
           </div>
         </motion.div>

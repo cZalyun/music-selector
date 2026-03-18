@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Heart, ThumbsDown, SkipForward } from 'lucide-react';
 import type { SongWithSelection } from '../../types';
 import { usePlayerStore } from '../../store/playerStore';
 import { getThumbnailUrl, getFallbackThumbnail } from '../../utils/thumbnail';
+import { acquireSlot } from '../../utils/imageQueue';
 
 interface SongRowProps {
   song: SongWithSelection;
@@ -77,15 +78,47 @@ export default function SongRow({ song, index }: SongRowProps) {
 }
 
 function RowThumbnail({ src, fallback }: { src: string; fallback: string }) {
-  // 0 = trying primary, 1 = trying fallback, 2 = all failed
   const [stage, setStage] = useState(0);
+  const [ready, setReady] = useState(false);
+  const releaseRef = useRef<(() => void) | null>(null);
+
   const imgSrc = stage === 0 ? (src || fallback) : stage === 1 ? fallback : '';
 
-  const handleError = () => {
+  useEffect(() => {
+    // No src to load — skip acquiring a slot
+    if (!imgSrc) { setReady(false); return; }
+
+    let cancelled = false;
+    setReady(false);
+
+    acquireSlot().then((release) => {
+      if (cancelled) { release(); return; }
+      releaseRef.current = release;
+      setReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+      if (releaseRef.current) { releaseRef.current(); releaseRef.current = null; }
+    };
+  }, [imgSrc]);
+
+  const done = () => {
+    if (releaseRef.current) { releaseRef.current(); releaseRef.current = null; }
+  };
+
+  const advance = () => {
+    done();
     setStage((prev) => {
       if (prev === 0 && fallback && src !== fallback) return 1;
       return 2;
     });
+  };
+
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (img.naturalWidth < 2 || img.naturalHeight < 2) { advance(); return; }
+    done();
   };
 
   if (!imgSrc || stage === 2) {
@@ -96,5 +129,13 @@ function RowThumbnail({ src, fallback }: { src: string; fallback: string }) {
     );
   }
 
-  return <img src={imgSrc} alt="" className="w-full h-full object-cover" onError={handleError} />;
+  if (!ready) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-surface-600 animate-pulse bg-surface-700">
+        <Play size={16} />
+      </div>
+    );
+  }
+
+  return <img src={imgSrc} alt="" className="w-full h-full object-cover" onError={advance} onLoad={handleLoad} loading="lazy" />;
 }

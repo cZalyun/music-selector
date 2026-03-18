@@ -15,10 +15,11 @@ export default function CardStack() {
   const setCurrentSong = usePlayerStore((s) => s.setCurrentSong);
   const addToast = useToastStore((s) => s.addToast);
   const autoplay = useSettingsStore((s) => s.autoplay);
+  const hideExplicit = useSettingsStore((s) => s.hideExplicit);
 
   const unreviewed = useMemo(
-    () => songs.filter((s) => !selections[s.index]),
-    [songs, selections]
+    () => songs.filter((s) => !selections[s.index] && (!hideExplicit || !s.isExplicit)),
+    [songs, selections, hideExplicit]
   );
 
   const currentSong = unreviewed[0] ?? null;
@@ -131,7 +132,7 @@ export default function CardStack() {
       </div>
 
       {/* Card area */}
-      <div className="flex-1 relative mx-4 mb-2" style={{ minHeight: '360px' }}>
+      <div className="flex-1 relative mx-4 mb-1" style={{ minHeight: '280px' }}>
         <AnimatePresence mode="popLayout">
           {nextSong && (
             <SwipeCard key={nextSong.index} song={nextSong} onSwipe={() => {}} isTop={false} />

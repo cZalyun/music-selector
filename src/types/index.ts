@@ -39,5 +39,5 @@ export interface FilterState {
   sortField: SortField;
   sortDirection: SortDirection;
   groupBy: GroupBy;
-  explicitOnly: boolean;
+  hideExplicit: boolean;
 }

@@ -9,7 +9,8 @@ export function getThumbnailUrl(raw: string | undefined, size: 'small' | 'large'
   // Google user-content thumbnails (lh3.googleusercontent.com)
   if (raw.includes('googleusercontent.com')) {
     const dims = size === 'large' ? 'w544-h544' : 'w120-h120';
-    return raw.replace(/=w\d+-h\d+[^"]*/, `=${dims}-l90-rj`);
+    // Only replace the dimension part, preserve other flags like -s-, -l90-rj etc.
+    return raw.replace(/=w\d+-h\d+/, `=${dims}`);
   }
 
   // YouTube thumbnail URLs (i.ytimg.com)
@@ -18,7 +19,7 @@ export function getThumbnailUrl(raw: string | undefined, size: 'small' | 'large'
     const match = raw.match(/\/vi\/([^/]+)\//);
     if (match) {
       const videoId = match[1];
-      const quality = size === 'large' ? 'hqdefault' : 'mqdefault';
+      const quality = size === 'large' ? 'hqdefault' : 'default';
       return `https://i.ytimg.com/vi/${videoId}/${quality}.jpg`;
     }
   }
@@ -28,10 +29,10 @@ export function getThumbnailUrl(raw: string | undefined, size: 'small' | 'large'
 
 /**
  * Build a fallback thumbnail URL from a videoId.
- * Uses YouTube's standard thumbnail endpoint which is always available.
+ * Uses YouTube's standard thumbnail endpoint — 'default.jpg' is always available.
  */
 export function getFallbackThumbnail(videoId: string | undefined, size: 'small' | 'large' = 'large'): string {
   if (!videoId) return '';
-  const quality = size === 'large' ? 'hqdefault' : 'mqdefault';
+  const quality = size === 'large' ? 'hqdefault' : 'default';
   return `https://i.ytimg.com/vi/${videoId}/${quality}.jpg`;
 }

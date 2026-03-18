@@ -5,17 +5,29 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+function isIPhone(): boolean {
+  return /iPhone|iPod/.test(navigator.userAgent);
+}
+
+function isInStandaloneMode(): boolean {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true;
+}
+
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
 
   useEffect(() => {
-    // Check if already installed as PWA
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (navigator as unknown as { standalone?: boolean }).standalone === true;
-    if (isStandalone) {
+    if (isInStandaloneMode()) {
       setIsInstalled(true);
+      return;
+    }
+
+    // iOS doesn't support beforeinstallprompt — show manual guide instead
+    if (isIPhone()) {
+      setShowIOSGuide(true);
       return;
     }
 
@@ -51,8 +63,9 @@ export function usePWAInstall() {
   };
 
   return {
-    canInstall: !!deferredPrompt && !isInstalled,
+    canInstall: (!!deferredPrompt || showIOSGuide) && !isInstalled,
     isInstalled,
+    isIOS: showIOSGuide,
     install,
   };
 }

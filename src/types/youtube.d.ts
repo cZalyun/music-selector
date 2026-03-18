@@ -32,9 +32,12 @@ declare namespace YT {
     stopVideo(): void;
     loadVideoById(videoId: string): void;
     cueVideoById(videoId: string): void;
+    seekTo(seconds: number, allowSeekAhead: boolean): void;
     setVolume(volume: number): void;
     getVolume(): number;
     getPlayerState(): number;
+    getCurrentTime(): number;
+    getDuration(): number;
     destroy(): void;
   }
 }

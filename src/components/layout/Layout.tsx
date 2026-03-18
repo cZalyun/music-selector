@@ -5,12 +5,14 @@ import BottomNav from './BottomNav';
 import MiniPlayer from '../player/MiniPlayer';
 import ToastContainer from '../ui/Toast';
 import InstallPrompt from '../ui/InstallPrompt';
+import OfflineBanner from '../OfflineBanner';
 
 export default function Layout() {
   const location = useLocation();
 
   return (
     <div className="flex flex-col min-h-dvh bg-surface-950 text-surface-100">
+      <OfflineBanner />
       <ToastContainer />
       <InstallPrompt />
       <main className="flex-1 pb-36 overflow-x-hidden">

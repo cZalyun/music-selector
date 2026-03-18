@@ -25,8 +25,8 @@ export function filterSongs(
   }
 
   // Explicit filter
-  if (filters.explicitOnly) {
-    result = result.filter((s) => s.isExplicit);
+  if (filters.hideExplicit) {
+    result = result.filter((s) => !s.isExplicit);
   }
 
   // Sort

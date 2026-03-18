@@ -61,7 +61,7 @@ export default function FilterChips({
         })}
       </div>
 
-      {/* Sort & Group */}
+      {/* Sort */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1 text-[10px] text-surface-500 uppercase tracking-wider">
           <ArrowUpDown size={10} />
@@ -87,25 +87,28 @@ export default function FilterChips({
           {sortDirection === 'asc' ? '↑' : '↓'}
         </button>
 
-        <div className="w-px h-4 bg-surface-700 mx-1" />
+        <div className="hidden min-[501px]:block w-px h-4 bg-surface-700 mx-1" />
 
-        <div className="flex items-center gap-1 text-[10px] text-surface-500 uppercase tracking-wider">
-          <Layers size={10} />
-          Group
+        {/* Group — separate line on small screens */}
+        <div className="flex items-center gap-2 basis-full min-[501px]:basis-auto">
+          <div className="flex items-center gap-1 text-[10px] text-surface-500 uppercase tracking-wider">
+            <Layers size={10} />
+            Group
+          </div>
+          {groups.map((g) => (
+            <button
+              key={g.value}
+              onClick={() => onGroupByChange(g.value)}
+              className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                groupBy === g.value
+                  ? 'bg-surface-700 text-surface-100'
+                  : 'text-surface-500 hover:text-surface-300'
+              }`}
+            >
+              {g.label}
+            </button>
+          ))}
         </div>
-        {groups.map((g) => (
-          <button
-            key={g.value}
-            onClick={() => onGroupByChange(g.value)}
-            className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-              groupBy === g.value
-                ? 'bg-surface-700 text-surface-100'
-                : 'text-surface-500 hover:text-surface-300'
-            }`}
-          >
-            {g.label}
-          </button>
-        ))}
       </div>
     </div>
   );

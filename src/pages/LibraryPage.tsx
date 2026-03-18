@@ -7,6 +7,7 @@ import SongList from '../components/library/SongList';
 import { useSongStore } from '../store/songStore';
 import { useSelectionStore } from '../store/selectionStore';
 import { usePlayerStore } from '../store/playerStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { filterSongs } from '../utils/search';
 import { groupSongs } from '../utils/grouping';
 import type { FilterState, LibraryTab, GroupBy, SortField } from '../types';
@@ -15,6 +16,7 @@ export default function LibraryPage() {
   const songs = useSongStore((s) => s.songs);
   const selections = useSelectionStore((s) => s.selections);
   const setCurrentSong = usePlayerStore((s) => s.setCurrentSong);
+  const hideExplicit = useSettingsStore((s) => s.hideExplicit);
 
   const selectionsMap = useMemo(
     () => new Map(Object.entries(selections).map(([k, v]) => [Number(k), v])),
@@ -27,7 +29,7 @@ export default function LibraryPage() {
     sortField: 'index',
     sortDirection: 'asc',
     groupBy: 'none',
-    explicitOnly: false,
+    hideExplicit: false,
   });
 
   const counts = useMemo(() => ({
@@ -38,8 +40,8 @@ export default function LibraryPage() {
   }), [songs, selections]);
 
   const filtered = useMemo(
-    () => filterSongs(songs, selectionsMap, filters),
-    [songs, selectionsMap, filters]
+    () => filterSongs(songs, selectionsMap, { ...filters, hideExplicit }),
+    [songs, selectionsMap, filters, hideExplicit]
   );
 
   const groups = useMemo(

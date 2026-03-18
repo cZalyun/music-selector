@@ -51,7 +51,7 @@ export default function SwipeCard({ song, onSwipe, isTop }: SwipeCardProps) {
     >
       <div className="relative w-full h-full rounded-3xl overflow-hidden bg-surface-800 border border-surface-700/50 shadow-2xl">
         {/* Thumbnail */}
-        <div className="relative w-full aspect-[4/3] max-h-[50%] overflow-hidden bg-surface-900">
+        <div className="relative w-full aspect-[4/3] max-h-[45%] overflow-hidden bg-surface-900">
           <ThumbnailImage
             src={getThumbnailUrl(song.thumbnail, 'large')}
             fallback={getFallbackThumbnail(song.videoId, 'large')}
