@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Music Selector</title>
+    <script>
+      // GitHub Pages SPA redirect for custom domain (root path)
+      // Since we use HashRouter, just redirect to root — the hash is preserved
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        '/' + (l.hash || '')
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
