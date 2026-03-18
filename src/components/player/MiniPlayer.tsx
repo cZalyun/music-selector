@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { usePlayerStore } from '../../store/playerStore';
 import { useSongStore } from '../../store/songStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { registerPlayer, unregisterPlayer, consumeGestureLoad } from '../../utils/playerBridge';
 
 declare global {
   interface Window {
@@ -142,6 +143,10 @@ export default function MiniPlayer() {
     if (activeVideoRef.current !== videoId) return;
 
     if (playerRef.current) {
+      // If already loaded via a direct user gesture, skip redundant call
+      if (consumeGestureLoad(videoId)) {
+        return;
+      }
       if (shouldPlay) {
         playerRef.current.loadVideoById(videoId);
       } else {
@@ -164,6 +169,7 @@ export default function MiniPlayer() {
       events: {
         onReady: () => {
           loadingRef.current = false;
+          registerPlayer(playerRef.current!);
         },
         onStateChange: (event: YT.OnStateChangeEvent) => {
           if (event.data === window.YT.PlayerState.PLAYING) {
@@ -217,6 +223,15 @@ export default function MiniPlayer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
 
+  // On mobile, force volume to max (volume slider is hidden)
+  useEffect(() => {
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    if (isMobile && volume !== 100) {
+      setVolume(100);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
       playerRef.current.setVolume(volume);
@@ -238,6 +253,7 @@ export default function MiniPlayer() {
     if (playerRef.current && typeof playerRef.current.stopVideo === 'function') {
       playerRef.current.stopVideo();
     }
+    unregisterPlayer();
     stop();
   };
 
@@ -344,7 +360,7 @@ export default function MiniPlayer() {
                 )}
                 <button
                   onClick={() => setVolume(volume === 0 ? 70 : 0)}
-                  className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
+                  className="hidden sm:block p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
                 >
                   {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
                 </button>
@@ -356,7 +372,7 @@ export default function MiniPlayer() {
                   onChange={(e) => setVolume(Number(e.target.value))}
                   onTouchStart={(e) => e.stopPropagation()}
                   onTouchMove={(e) => e.stopPropagation()}
-                  className="w-14 accent-accent-500 touch-none"
+                  className="hidden sm:block w-14 accent-accent-500 touch-none"
                 />
                 <button
                   onClick={() => setPlaying(!isPlaying)}

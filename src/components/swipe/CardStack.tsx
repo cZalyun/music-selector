@@ -7,6 +7,7 @@ import { useSelectionStore } from '../../store/selectionStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useToastStore } from '../../store/toastStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { loadVideoFromGesture } from '../../utils/playerBridge';
 import type { SelectionStatus } from '../../types';
 
 export default function CardStack() {
@@ -43,9 +44,10 @@ export default function CardStack() {
         addToast(`Liked "${currentSong.title}"`, 'success');
       }
 
-      // Load next song — setCurrentSong handles play state via autoplay flag
+      // Load next song — call loadVideoFromGesture directly for mobile autoplay
       const next = unreviewed[1];
       if (next) {
+        if (autoplay) loadVideoFromGesture(next.videoId);
         setCurrentSong(next.videoId, next.index, autoplay);
       }
     },
@@ -72,6 +74,7 @@ export default function CardStack() {
     if (currentVideoId === currentSong.videoId) {
       setPlaying(!isPlaying);
     } else {
+      loadVideoFromGesture(currentSong.videoId);
       setCurrentSong(currentSong.videoId, currentSong.index);
     }
   }, [currentSong, currentVideoId, isPlaying, setCurrentSong, setPlaying]);

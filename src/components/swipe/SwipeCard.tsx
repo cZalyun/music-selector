@@ -87,9 +87,9 @@ export default function SwipeCard({ song, onSwipe, isTop }: SwipeCardProps) {
         </div>
 
         {/* Song info */}
-        <div className="p-5 flex flex-col gap-2">
+        <div className="px-4 py-3 flex flex-col gap-1.5">
           <div className="flex items-start gap-2">
-            <h2 className="text-lg font-bold text-surface-50 leading-tight flex-1 line-clamp-2">
+            <h2 className="text-base font-bold text-surface-50 leading-tight flex-1 line-clamp-2">
               {song.title}
             </h2>
             {song.isExplicit && (

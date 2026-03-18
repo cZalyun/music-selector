@@ -4,7 +4,7 @@ import { Play, Heart, ThumbsDown, SkipForward } from 'lucide-react';
 import type { SongWithSelection } from '../../types';
 import { usePlayerStore } from '../../store/playerStore';
 import { getThumbnailUrl, getFallbackThumbnail } from '../../utils/thumbnail';
-import { acquireSlot } from '../../utils/imageQueue';
+import { loadVideoFromGesture } from '../../utils/playerBridge';
 
 interface SongRowProps {
   song: SongWithSelection;
@@ -22,6 +22,8 @@ export default function SongRow({ song, index }: SongRowProps) {
   const isActive = currentSongIndex === song.index;
 
   const handlePlay = () => {
+    // Call loadVideoById directly from user gesture for mobile autoplay
+    loadVideoFromGesture(song.videoId);
     setCurrentSong(song.videoId, song.index);
   };
 
@@ -79,36 +81,23 @@ export default function SongRow({ song, index }: SongRowProps) {
 
 function RowThumbnail({ src, fallback }: { src: string; fallback: string }) {
   const [stage, setStage] = useState(0);
-  const [ready, setReady] = useState(false);
-  const releaseRef = useRef<(() => void) | null>(null);
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   const imgSrc = stage === 0 ? (src || fallback) : stage === 1 ? fallback : '';
 
   useEffect(() => {
-    // No src to load — skip acquiring a slot
-    if (!imgSrc) { setReady(false); return; }
-
-    let cancelled = false;
-    setReady(false);
-
-    acquireSlot().then((release) => {
-      if (cancelled) { release(); return; }
-      releaseRef.current = release;
-      setReady(true);
-    });
-
-    return () => {
-      cancelled = true;
-      if (releaseRef.current) { releaseRef.current(); releaseRef.current = null; }
-    };
-  }, [imgSrc]);
-
-  const done = () => {
-    if (releaseRef.current) { releaseRef.current(); releaseRef.current = null; }
-  };
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const advance = () => {
-    done();
     setStage((prev) => {
       if (prev === 0 && fallback && src !== fallback) return 1;
       return 2;
@@ -117,23 +106,20 @@ function RowThumbnail({ src, fallback }: { src: string; fallback: string }) {
 
   const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
-    if (img.naturalWidth < 2 || img.naturalHeight < 2) { advance(); return; }
-    done();
+    if (img.naturalWidth < 2 || img.naturalHeight < 2) advance();
   };
 
   if (!imgSrc || stage === 2) {
     return (
-      <div className="w-full h-full flex items-center justify-center text-surface-600">
+      <div ref={ref} className="w-full h-full flex items-center justify-center text-surface-600">
         <Play size={16} />
       </div>
     );
   }
 
-  if (!ready) {
+  if (!visible) {
     return (
-      <div className="w-full h-full flex items-center justify-center text-surface-600 animate-pulse bg-surface-700">
-        <Play size={16} />
-      </div>
+      <div ref={ref} className="w-full h-full bg-surface-700" />
     );
   }
 

@@ -11,7 +11,7 @@ export default function Layout() {
   const location = useLocation();
 
   return (
-    <div className="flex flex-col min-h-dvh bg-surface-950 text-surface-100">
+    <div className="flex flex-col min-h-full bg-surface-950 text-surface-100">
       <OfflineBanner />
       <ToastContainer />
       <InstallPrompt />
