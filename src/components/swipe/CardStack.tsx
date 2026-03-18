@@ -7,7 +7,6 @@ import { useSelectionStore } from '../../store/selectionStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useToastStore } from '../../store/toastStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { loadVideoFromGesture } from '../../utils/playerBridge';
 import type { SelectionStatus } from '../../types';
 
 export default function CardStack() {
@@ -44,11 +43,12 @@ export default function CardStack() {
         addToast(`Liked "${currentSong.title}"`, 'success');
       }
 
-      // Load next song — call loadVideoFromGesture directly for mobile autoplay
+      // Load next song
       const next = unreviewed[1];
       if (next) {
-        if (autoplay) loadVideoFromGesture(next.videoId);
+        console.log('[CardStack] handleSwipe - next song:', { videoId: next.videoId, autoplay });
         setCurrentSong(next.videoId, next.index, autoplay);
+        console.log('[CardStack] setCurrentSong called with autoplay:', autoplay);
       }
     },
     [currentSong, unreviewed, addSelection, setCurrentSong, addToast, autoplay]
@@ -74,7 +74,6 @@ export default function CardStack() {
     if (currentVideoId === currentSong.videoId) {
       setPlaying(!isPlaying);
     } else {
-      loadVideoFromGesture(currentSong.videoId);
       setCurrentSong(currentSong.videoId, currentSong.index);
     }
   }, [currentSong, currentVideoId, isPlaying, setCurrentSong, setPlaying]);

@@ -5,7 +5,8 @@ import { useLocation } from 'react-router-dom';
 import { usePlayerStore } from '../../store/playerStore';
 import { useSongStore } from '../../store/songStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { registerPlayer, unregisterPlayer, consumeGestureLoad } from '../../utils/playerBridge';
+import { registerPlayer, unregisterPlayer } from '../../utils/playerBridge';
+import { getThumbnailUrl } from '../../utils/thumbnail';
 
 declare global {
   interface Window {
@@ -52,15 +53,61 @@ export default function MiniPlayer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeVideoRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  // True once the player has EVER reached PLAYING state (iOS is then unlocked)
+  const playerActivatedRef = useRef(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [seeking, setSeeking] = useState(false);
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const handleSongEndRef = useRef<() => void>(() => {});
 
-  const currentSong = songs.find((s) => s.index === currentSongIndex);
   const location = useLocation();
   const isSwipePage = location.pathname === '/swipe';
+  const currentSong = songs.find((s) => s.index === currentSongIndex);
+
+  // Media Session API for lock screen controls and background playback
+  const updateMediaSession = useCallback(() => {
+    if (!navigator.mediaSession || !currentSong) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentSong.title,
+      artist: currentSong.primaryArtist,
+      album: currentSong.album || undefined,
+      artwork: [
+        { src: getThumbnailUrl(currentSong.thumbnail, 'small'), sizes: '96x96', type: 'image/jpeg' },
+        { src: getThumbnailUrl(currentSong.thumbnail, 'small'), sizes: '192x192', type: 'image/jpeg' },
+        { src: getThumbnailUrl(currentSong.thumbnail, 'large'), sizes: '512x512', type: 'image/jpeg' },
+      ],
+    });
+  }, [currentSong]);
+
+  useEffect(() => {
+    if (!navigator.mediaSession) return;
+    navigator.mediaSession.setActionHandler('play', () => setPlaying(true));
+    navigator.mediaSession.setActionHandler('pause', () => setPlaying(false));
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      // Find next song in library order
+      const nextIndex = (currentSongIndex ?? -1) + 1;
+      const nextSong = songs.find((s) => s.index === nextIndex);
+      if (nextSong) {
+        setCurrentSong(nextSong.videoId, nextSong.index);
+      }
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      const prevIndex = (currentSongIndex ?? 0) - 1;
+      const prevSong = songs.find((s) => s.index === prevIndex);
+      if (prevSong) {
+        setCurrentSong(prevSong.videoId, prevSong.index);
+      }
+    });
+    return () => {
+      if (navigator.mediaSession) {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+      }
+    };
+  }, [currentSongIndex, songs, setCurrentSong, setPlaying]);
 
   // On swipe page, force these off programmatically
   const loopMode = isSwipePage ? 'off' as const : _loopMode;
@@ -143,13 +190,14 @@ export default function MiniPlayer() {
     if (activeVideoRef.current !== videoId) return;
 
     if (playerRef.current) {
-      // If already loaded via a direct user gesture, skip redundant call
-      if (consumeGestureLoad(videoId)) {
-        return;
-      }
+      console.log('[MiniPlayer] Loading new video:', { videoId, shouldPlay });
       if (shouldPlay) {
+        // On desktop, loadVideoById works fine
+        // On mobile, this might be blocked but that's OK - the user will tap play
+        console.log('[MiniPlayer] Calling loadVideoById for autoplay');
         playerRef.current.loadVideoById(videoId);
       } else {
+        console.log('[MiniPlayer] Calling cueVideoById (no autoplay)');
         playerRef.current.cueVideoById(videoId);
       }
       return;
@@ -172,9 +220,16 @@ export default function MiniPlayer() {
           registerPlayer(playerRef.current!);
         },
         onStateChange: (event: YT.OnStateChangeEvent) => {
+          console.log('[MiniPlayer] YT state change:', { state: event.data, videoId: activeVideoRef.current });
           if (event.data === window.YT.PlayerState.PLAYING) {
             loadingRef.current = false;
+            playerActivatedRef.current = true;
+            console.log('[MiniPlayer] YT is PLAYING, calling setPlaying(true)');
             setPlaying(true);
+            updateMediaSession();
+            if (navigator.mediaSession) {
+              navigator.mediaSession.playbackState = 'playing';
+            }
             try {
               const d = playerRef.current?.getDuration();
               if (d && d > 0) setDuration(d);
@@ -190,9 +245,10 @@ export default function MiniPlayer() {
             return;
           }
           if (loadingRef.current) {
-            // On mobile, autoplay may be blocked — player goes to PAUSED
-            // instead of PLAYING. Verify after a delay to sync UI state.
-            if (event.data === window.YT.PlayerState.PAUSED) {
+            // Only check for blocked autoplay on the very first load.
+            // Once the player is activated, PAUSED during loading = old video
+            // stopping, NOT new video being blocked — so don't interfere.
+            if (!playerActivatedRef.current && event.data === window.YT.PlayerState.PAUSED) {
               setTimeout(() => {
                 if (!playerRef.current) return;
                 try {
@@ -209,7 +265,11 @@ export default function MiniPlayer() {
           if (event.data === window.YT.PlayerState.ENDED) {
             handleSongEndRef.current();
           } else if (event.data === window.YT.PlayerState.PAUSED) {
+            console.log('[MiniPlayer] YT is PAUSED, calling setPlaying(false)');
             setPlaying(false);
+            if (navigator.mediaSession) {
+              navigator.mediaSession.playbackState = 'paused';
+            }
           }
         },
       },
@@ -218,7 +278,10 @@ export default function MiniPlayer() {
 
   useEffect(() => {
     if (currentVideoId) {
-      initPlayer(currentVideoId, isPlaying);
+      // Read isPlaying directly from store to avoid stale closure
+      const currentPlayState = usePlayerStore.getState().isPlaying;
+      console.log('[MiniPlayer] useEffect triggered:', { currentVideoId, currentPlayState });
+      initPlayer(currentVideoId, currentPlayState);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
@@ -231,6 +294,22 @@ export default function MiniPlayer() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    console.log('[MiniPlayer] isPlaying effect triggered:', { isPlaying, currentVideoId });
+    if (!playerRef.current) return;
+    try {
+      if (isPlaying && typeof playerRef.current.playVideo === 'function') {
+        console.log('[MiniPlayer] Calling playVideo()');
+        playerRef.current.playVideo();
+      } else if (!isPlaying && typeof playerRef.current.pauseVideo === 'function') {
+        console.log('[MiniPlayer] Calling pauseVideo()');
+        playerRef.current.pauseVideo();
+      }
+    } catch (e) {
+      console.error('[MiniPlayer] Error calling play/pause:', e);
+    }
+  }, [isPlaying]);
 
   useEffect(() => {
     if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
