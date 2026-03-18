@@ -213,6 +213,8 @@ export default function MiniPlayer() {
         disablekb: 1,
         modestbranding: 1,
         playsinline: 1,
+        // Only add mute=1 on mobile for iOS autoplay compatibility
+        ...(window.matchMedia('(max-width: 639px)').matches ? { mute: 1 } : {}),
       },
       events: {
         onReady: () => {
@@ -229,6 +231,15 @@ export default function MiniPlayer() {
             updateMediaSession();
             if (navigator.mediaSession) {
               navigator.mediaSession.playbackState = 'playing';
+            }
+            // Unmute after autoplay starts (for iOS compatibility)
+            if (playerRef.current) {
+              try {
+                (playerRef.current as any).unMute();
+                playerRef.current.setVolume(volume);
+              } catch (e) {
+                console.log('[MiniPlayer] Could not unmute:', e);
+              }
             }
             try {
               const d = playerRef.current?.getDuration();
