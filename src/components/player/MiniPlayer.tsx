@@ -60,6 +60,7 @@ export default function MiniPlayer() {
   const [seeking, setSeeking] = useState(false);
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const handleSongEndRef = useRef<() => void>(() => {});
+  const userHasInteractedRef = useRef(false); // Track if user has interacted with player
 
   const location = useLocation();
   const isSwipePage = location.pathname === '/swipe';
@@ -213,7 +214,7 @@ export default function MiniPlayer() {
         disablekb: 1,
         modestbranding: 1,
         playsinline: 1,
-        // Only add mute=1 on mobile for iOS autoplay compatibility
+        // Only mute on mobile for autoplay compatibility
         ...(window.matchMedia('(max-width: 639px)').matches ? { mute: 1 } : {}),
       },
       events: {
@@ -231,15 +232,6 @@ export default function MiniPlayer() {
             updateMediaSession();
             if (navigator.mediaSession) {
               navigator.mediaSession.playbackState = 'playing';
-            }
-            // Unmute after autoplay starts (for iOS compatibility)
-            if (playerRef.current) {
-              try {
-                (playerRef.current as any).unMute();
-                playerRef.current.setVolume(volume);
-              } catch (e) {
-                console.log('[MiniPlayer] Could not unmute:', e);
-              }
             }
             try {
               const d = playerRef.current?.getDuration();
@@ -306,85 +298,7 @@ export default function MiniPlayer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handle page visibility changes (background/foreground) for iOS Safari
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      console.log('[MiniPlayer] Visibility changed:', { 
-        hidden: document.hidden, 
-        isPlaying, 
-        currentVideoId,
-        playerExists: !!playerRef.current 
-      });
-      
-      if (!document.hidden && playerRef.current && currentVideoId && isPlaying) {
-        // Page came back to foreground - check if player is still playing
-        try {
-          const state = playerRef.current.getPlayerState();
-          console.log('[MiniPlayer] Player state on visibility change:', state);
-          
-          // If player is not playing but should be, try to restart
-          if (state !== window.YT.PlayerState.PLAYING && state !== window.YT.PlayerState.BUFFERING) {
-            console.log('[MiniPlayer] Restarting playback on visibility change');
-            playerRef.current.playVideo();
-            
-            // Update Media Session API to reconnect
-            if (navigator.mediaSession) {
-              updateMediaSession();
-              navigator.mediaSession.playbackState = 'playing';
-            }
-          }
-        } catch (e) {
-          console.error('[MiniPlayer] Error checking player state:', e);
-        }
-      }
-    };
-
-    const handlePageShow = (event: PageTransitionEvent) => {
-      // Pageshow event fires when page is restored from back cache
-      if (event.persisted) {
-        console.log('[MiniPlayer] Page restored from back cache');
-        // Give YouTube player time to initialize
-        setTimeout(() => {
-          if (playerRef.current && currentVideoId && isPlaying) {
-            console.log('[MiniPlayer] Restarting playback after page restore');
-            playerRef.current.playVideo();
-          }
-        }, 1000);
-      }
-    };
-
-    // Handle iOS Safari specific background/foreground events
-    const handleFocus = () => {
-      console.log('[MiniPlayer] Window gained focus (iOS Safari)');
-      if (playerRef.current && currentVideoId && isPlaying) {
-        setTimeout(() => {
-          try {
-            const player = playerRef.current;
-            if (player) {
-              const state = player.getPlayerState();
-              if (state !== window.YT.PlayerState.PLAYING && state !== window.YT.PlayerState.BUFFERING) {
-                console.log('[MiniPlayer] Restarting playback on focus');
-                player.playVideo();
-              }
-            }
-          } catch (e) {
-            console.error('[MiniPlayer] Error checking player state on focus:', e);
-          }
-        }, 500);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pageshow', handlePageShow);
-    window.addEventListener('focus', handleFocus);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pageshow', handlePageShow);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [currentVideoId, isPlaying, updateMediaSession]);
-
+  
   useEffect(() => {
     console.log('[MiniPlayer] isPlaying effect triggered:', { isPlaying, currentVideoId });
     if (!playerRef.current) return;
@@ -395,38 +309,8 @@ export default function MiniPlayer() {
       if (isPlaying && typeof playerRef.current.playVideo === 'function') {
         console.log('[MiniPlayer] Calling playVideo()', { isMobile });
         
-        if (isMobile) {
-          // Mobile autoplay workaround: rapid toggle to trigger gesture detection
-          console.log('[MiniPlayer] Mobile autoplay workaround: rapid toggle sequence');
-          
-          // Start with pause to ensure clean state
-          playerRef.current.pauseVideo();
-          
-          // Toggle play/pause rapidly to simulate user gesture
-          setTimeout(() => {
-            if (playerRef.current) {
-              playerRef.current.playVideo();
-              console.log('[MiniPlayer] Mobile: first play()');
-            }
-          }, 100);
-          
-          setTimeout(() => {
-            if (playerRef.current) {
-              playerRef.current.pauseVideo();
-              console.log('[MiniPlayer] Mobile: pause()');
-            }
-          }, 400); // 300ms after first play
-          
-          setTimeout(() => {
-            if (playerRef.current) {
-              playerRef.current.playVideo();
-              console.log('[MiniPlayer] Mobile: final play()');
-            }
-          }, 700); // 300ms after pause
-        } else {
-          // Desktop: normal play
-          playerRef.current.playVideo();
-        }
+        // Simple play for both mobile and desktop
+        playerRef.current.playVideo();
       } else if (!isPlaying && typeof playerRef.current.pauseVideo === 'function') {
         console.log('[MiniPlayer] Calling pauseVideo()');
         playerRef.current.pauseVideo();
@@ -563,8 +447,24 @@ export default function MiniPlayer() {
                   </>
                 )}
                 <button
-                  onClick={() => setVolume(volume === 0 ? 70 : 0)}
-                  className="hidden sm:block p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
+                  onClick={() => {
+                    if (playerRef.current) {
+                      try {
+                        if (volume === 0) {
+                          // User gesture - safe to unmute
+                          (playerRef.current as any).unMute();
+                          setVolume(70);
+                        } else {
+                          setVolume(0);
+                          (playerRef.current as any).mute();
+                        }
+                      } catch (e) {
+                        console.error('[MiniPlayer] Error toggling mute:', e);
+                      }
+                    }
+                  }}
+                  className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
+                  title={volume === 0 ? "Tap to unmute" : "Tap to mute"}
                 >
                   {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
                 </button>
@@ -579,7 +479,25 @@ export default function MiniPlayer() {
                   className="hidden sm:block w-14 accent-accent-500 touch-none"
                 />
                 <button
-                  onClick={() => setPlaying(!isPlaying)}
+                  onClick={() => {
+                    // Track user interaction for mobile auto-unmute
+                    if (!userHasInteractedRef.current && window.matchMedia('(max-width: 639px)').matches) {
+                      userHasInteractedRef.current = true;
+                      // Auto-unmute on first user interaction
+                      setTimeout(() => {
+                        if (playerRef.current) {
+                          try {
+                            (playerRef.current as any).unMute();
+                            playerRef.current.setVolume(volume);
+                            console.log('[MiniPlayer] Auto-unmuted after first user interaction');
+                          } catch (e) {
+                            console.log('[MiniPlayer] Could not auto-unmute:', e);
+                          }
+                        }
+                      }, 100);
+                    }
+                    setPlaying(!isPlaying);
+                  }}
                   className="p-2 bg-accent-600 hover:bg-accent-500 rounded-full text-white transition-colors"
                 >
                   {isPlaying ? <Pause size={16} /> : <Play size={16} />}
