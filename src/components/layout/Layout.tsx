@@ -15,7 +15,7 @@ export default function Layout() {
       <OfflineBanner />
       <ToastContainer />
       <InstallPrompt />
-      <main className="flex-1 pb-36 overflow-x-hidden">
+      <main className={`flex-1 overflow-x-hidden`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
