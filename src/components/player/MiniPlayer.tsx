@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { usePlayerStore } from '../../store/playerStore';
 import { useSongStore } from '../../store/songStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { registerPlayer, unregisterPlayer } from '../../utils/playerBridge';
+import { registerPlayer, unregisterPlayer, consumeGestureLoad } from '../../utils/playerBridge';
 import { getThumbnailUrl } from '../../utils/thumbnail';
 
 declare global {
@@ -191,6 +191,26 @@ export default function MiniPlayer() {
     if (activeVideoRef.current !== videoId) return;
 
     if (playerRef.current) {
+      // On mobile the gesture handler already called loadVideoById directly.
+      // Consuming the flag prevents a redundant second load.
+      const { consumed } = consumeGestureLoad(videoId);
+      if (consumed) {
+        console.log('[MiniPlayer] Gesture consumed, checking player state');
+        // If the player is already playing/buffering from the gesture, sync state
+        // Otherwise, leave loadingRef=true and wait for onStateChange
+        try {
+          const state = playerRef.current.getPlayerState();
+          if (state === window.YT.PlayerState.PLAYING || state === window.YT.PlayerState.BUFFERING) {
+            console.log('[MiniPlayer] Player already active from gesture');
+            if (state === window.YT.PlayerState.PLAYING) {
+              loadingRef.current = false;
+              setPlaying(true);
+            }
+          }
+        } catch { /* */ }
+        return;
+      }
+
       if (shouldPlay) {
         playerRef.current.loadVideoById(videoId);
       } else {
