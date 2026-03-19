@@ -33,6 +33,7 @@ import {
   AUTOPLAY_TIMEOUT_MS,
   DEFAULT_VOLUME,
 } from '@/constants';
+import { startSilentAudio, stopSilentAudio, resumeSilentAudio } from '@/utils/silentAudio';
 import { useLocation } from 'react-router-dom';
 
 let ytApiLoaded = false;
@@ -133,10 +134,26 @@ export function MiniPlayer() {
     if (!('mediaSession' in navigator)) return;
 
     const handlers: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
-      ['play', () => { playerRef.current?.playVideo(); setPlaying(true); }],
-      ['pause', () => { playerRef.current?.pauseVideo(); setPlaying(false); }],
+      ['play', () => {
+        playerRef.current?.playVideo();
+        startSilentAudio();
+        setPlaying(true);
+      }],
+      ['pause', () => {
+        playerRef.current?.pauseVideo();
+        stopSilentAudio();
+        setPlaying(false);
+      }],
       ['nexttrack', () => playAdjacentSong(1)],
       ['previoustrack', () => playAdjacentSong(-1)],
+      ['seekto', (details) => {
+        if (details.seekTime !== undefined && playerRef.current) {
+          try {
+            playerRef.current.seekTo(details.seekTime, true);
+            setProgress(details.seekTime);
+          } catch { /* ignore */ }
+        }
+      }],
     ];
 
     handlers.forEach(([action, handler]) => {
@@ -151,21 +168,44 @@ export function MiniPlayer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSongIndex, songs]);
 
-  // Update media session playback state
+  // Update media session playback state + position
   useEffect(() => {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    if (duration > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration,
+          playbackRate: 1,
+          position: Math.min(progress, duration),
+        });
+      } catch { /* unsupported on older browsers */ }
     }
-  }, [isPlaying]);
+  }, [isPlaying, progress, duration]);
 
-  // Visibility change: resync progress
+  // Track whether we were playing before backgrounding so we can resume on unlock
+  const wasPlayingRef = useRef(false);
+
+  // Visibility change: resume audio after lock screen / background
   useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState === 'visible' && playerRef.current) {
-        try {
-          setProgress(playerRef.current.getCurrentTime());
-          setDuration(playerRef.current.getDuration());
-        } catch { /* player may be destroyed */ }
+    const handler = async () => {
+      if (document.visibilityState === 'hidden') {
+        // Snapshot playing state before iOS suspends
+        wasPlayingRef.current = usePlayerStore.getState().isPlaying;
+      } else {
+        // Coming back to foreground / screen unlock
+        await resumeSilentAudio();
+        if (wasPlayingRef.current && playerRef.current) {
+          try {
+            const state = playerRef.current.getPlayerState();
+            // iOS may have paused the YT player — resume it
+            if (state === YT.PlayerState.PAUSED || state === YT.PlayerState.UNSTARTED || state === -1) {
+              playerRef.current.playVideo();
+            }
+            setProgress(playerRef.current.getCurrentTime());
+            setDuration(playerRef.current.getDuration());
+          } catch { /* player may be in bad state */ }
+        }
       }
     };
     document.addEventListener('visibilitychange', handler);
@@ -314,12 +354,14 @@ export function MiniPlayer() {
     if (state === YT.PlayerState.PLAYING) {
       setPlaying(true);
       setShowTapToPlay(false);
+      startSilentAudio(); // claim iOS audio hardware session
       try {
         setDuration(event.target.getDuration());
       } catch { /* ignore */ }
     } else if (state === YT.PlayerState.PAUSED) {
       if (!isGestureLoadPending()) {
         setPlaying(false);
+        stopSilentAudio();
       }
     } else if (state === YT.PlayerState.ENDED) {
       handleSongEnded();
@@ -389,6 +431,7 @@ export function MiniPlayer() {
     if (playerRef.current) {
       try { playerRef.current.stopVideo(); } catch { /* ignore */ }
     }
+    stopSilentAudio();
     stop();
     setProgress(0);
     setDuration(0);
