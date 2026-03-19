@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { usePlayerStore } from '../../store/playerStore';
 import { useSongStore } from '../../store/songStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { registerPlayer, unregisterPlayer } from '../../utils/playerBridge';
+import { registerPlayer, unregisterPlayer, unmutePlayer } from '../../utils/playerBridge';
 import { getThumbnailUrl } from '../../utils/thumbnail';
 
 declare global {
@@ -60,7 +60,7 @@ export default function MiniPlayer() {
   const [seeking, setSeeking] = useState(false);
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const handleSongEndRef = useRef<() => void>(() => {});
-  const userHasInteractedRef = useRef(false); // Track if user has interacted with player
+  const playerMutedRef = useRef(false); // True if player was started muted (mobile)
 
   const location = useLocation();
   const isSwipePage = location.pathname === '/swipe';
@@ -204,6 +204,10 @@ export default function MiniPlayer() {
       return;
     }
 
+    const isMobileInit = window.matchMedia('(max-width: 639px)').matches;
+    // On mobile, mute for initial autoplay; player unlocks on first user gesture
+    if (isMobileInit && shouldPlay) playerMutedRef.current = true;
+
     playerRef.current = new window.YT.Player('yt-player', {
       height: '0',
       width: '0',
@@ -214,8 +218,7 @@ export default function MiniPlayer() {
         disablekb: 1,
         modestbranding: 1,
         playsinline: 1,
-        // Only mute on mobile for autoplay compatibility
-        ...(window.matchMedia('(max-width: 639px)').matches ? { mute: 1 } : {}),
+        ...(isMobileInit && shouldPlay ? { mute: 1 } : {}),
       },
       events: {
         onReady: () => {
@@ -480,21 +483,10 @@ export default function MiniPlayer() {
                 />
                 <button
                   onClick={() => {
-                    // Track user interaction for mobile auto-unmute
-                    if (!userHasInteractedRef.current && window.matchMedia('(max-width: 639px)').matches) {
-                      userHasInteractedRef.current = true;
-                      // Auto-unmute on first user interaction
-                      setTimeout(() => {
-                        if (playerRef.current) {
-                          try {
-                            (playerRef.current as any).unMute();
-                            playerRef.current.setVolume(volume);
-                            console.log('[MiniPlayer] Auto-unmuted after first user interaction');
-                          } catch (e) {
-                            console.log('[MiniPlayer] Could not auto-unmute:', e);
-                          }
-                        }
-                      }, 100);
+                    // On mobile first interaction: unmute the player (player is "unlocked" by this gesture)
+                    if (playerMutedRef.current) {
+                      playerMutedRef.current = false;
+                      unmutePlayer();
                     }
                     setPlaying(!isPlaying);
                   }}
