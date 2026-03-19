@@ -254,7 +254,7 @@ export default function MiniPlayer() {
                     setPlaying(false);
                   }
                 } catch { /* */ }
-              }, 600);
+              }, 17);
             }
             return;
           }
