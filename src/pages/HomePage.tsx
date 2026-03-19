@@ -112,8 +112,8 @@ export default function HomePage() {
         </motion.div>
       )}
 
-      {/* DropZone */}
-      <DropZone />
+      {/* DropZone - only show if no existing session */}
+      {songs.length === 0 && <DropZone />}
 
       {/* Load sample data */}
       <button

@@ -429,13 +429,15 @@ export function MiniPlayer() {
           <div className="max-w-lg mx-auto px-3 py-2">
             {/* Song info row */}
             <div className="flex items-center gap-3 mb-2">
-              <button
-                onClick={handleStop}
-                className="p-2.5 -ml-1 text-surface-400 hover:text-surface-200 transition-colors"
-                aria-label={t('player.stop')}
-              >
-                <X size={18} />
-              </button>
+              {!isSwipePage && (
+                <button
+                  onClick={handleStop}
+                  className="p-2.5 -ml-1 text-surface-400 hover:text-surface-200 transition-colors"
+                  aria-label={t('player.stop')}
+                >
+                  <X size={18} />
+                </button>
+              )}
               <MiniPlayerThumbnail
                 thumbnail={currentSong.thumbnail}
                 videoId={currentSong.videoId}
