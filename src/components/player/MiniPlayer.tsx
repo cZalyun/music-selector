@@ -60,7 +60,6 @@ export default function MiniPlayer() {
   const [seeking, setSeeking] = useState(false);
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const handleSongEndRef = useRef<() => void>(() => {});
-  const mobilePlayInProgressRef = useRef(false); // Prevent multiple mobile play attempts
 
   const location = useLocation();
   const isSwipePage = location.pathname === '/swipe';
@@ -397,50 +396,33 @@ export default function MiniPlayer() {
         console.log('[MiniPlayer] Calling playVideo()', { isMobile });
         
         if (isMobile) {
-          // Prevent multiple simultaneous play attempts
-          if (mobilePlayInProgressRef.current) {
-            console.log('[MiniPlayer] Mobile: play already in progress, skipping');
-            return;
-          }
+          // Mobile autoplay workaround: rapid toggle to trigger gesture detection
+          console.log('[MiniPlayer] Mobile autoplay workaround: rapid toggle sequence');
           
-          mobilePlayInProgressRef.current = true;
-          console.log('[MiniPlayer] Mobile: attempting normal play first');
+          // Start with pause to ensure clean state
+          playerRef.current.pauseVideo();
           
-          // Try normal play first
-          playerRef.current.playVideo();
-          
-          // Check if play was blocked after a delay
+          // Toggle play/pause rapidly to simulate user gesture
           setTimeout(() => {
             if (playerRef.current) {
-              try {
-                const state = playerRef.current.getPlayerState();
-                console.log('[MiniPlayer] Mobile: player state after 500ms:', state);
-                
-                // If still not playing (blocked), try the workaround
-                if (state !== window.YT.PlayerState.PLAYING && state !== window.YT.PlayerState.BUFFERING) {
-                  console.log('[MiniPlayer] Mobile: play was blocked, trying workaround');
-                  
-                  // Quick pause to reset state
-                  playerRef.current.pauseVideo();
-                  
-                  // Try play again with gesture simulation
-                  setTimeout(() => {
-                    if (playerRef.current) {
-                      playerRef.current.playVideo();
-                      console.log('[MiniPlayer] Mobile: workaround play attempt');
-                    }
-                  }, 200);
-                }
-              } catch (e) {
-                console.log('[MiniPlayer] Mobile: could not check state, assuming play worked');
-              }
+              playerRef.current.playVideo();
+              console.log('[MiniPlayer] Mobile: first play()');
             }
-          }, 500);
+          }, 100);
           
-          // Reset flag after all attempts complete
           setTimeout(() => {
-            mobilePlayInProgressRef.current = false;
-          }, 1000);
+            if (playerRef.current) {
+              playerRef.current.pauseVideo();
+              console.log('[MiniPlayer] Mobile: pause()');
+            }
+          }, 400); // 300ms after first play
+          
+          setTimeout(() => {
+            if (playerRef.current) {
+              playerRef.current.playVideo();
+              console.log('[MiniPlayer] Mobile: final play()');
+            }
+          }, 700); // 300ms after pause
         } else {
           // Desktop: normal play
           playerRef.current.playVideo();
