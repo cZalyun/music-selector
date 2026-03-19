@@ -1,32 +1,29 @@
 import { Search, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 interface SearchBarProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (val: string) => void;
 }
 
-export function SearchBar({ value, onChange }: SearchBarProps) {
-  const { t } = useTranslation();
-
+export default function SearchBar({ value, onChange }: SearchBarProps) {
   return (
-    <div className="relative">
-      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500" />
+    <div className="relative mb-4 mx-4">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-surface-400">
+        <Search size={18} />
+      </div>
       <input
         type="text"
+        className="block w-full pl-10 pr-10 py-2.5 bg-surface-100 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow outline-none text-surface-900 dark:text-surface-50 placeholder-surface-500"
+        placeholder="Search title, artist, or album..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={t('library.search')}
-        className="w-full pl-9 pr-9 py-2.5 bg-surface-800 border border-surface-700 rounded-xl text-sm text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-accent-500 transition-colors"
-        aria-label={t('library.search')}
       />
       {value && (
         <button
           onClick={() => onChange('')}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-200 transition-colors"
-          aria-label={t('library.clearSearch')}
+          className="absolute inset-y-0 right-0 pr-3 flex items-center text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors"
         >
-          <X size={14} />
+          <X size={18} />
         </button>
       )}
     </div>

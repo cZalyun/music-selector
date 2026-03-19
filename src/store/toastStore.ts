@@ -1,54 +1,31 @@
 import { create } from 'zustand';
-import type { Toast, ToastType } from '@/types';
-import { TOAST_AUTO_DISMISS_MS } from '@/constants';
+
+export type ToastType = 'success' | 'error' | 'info';
+
+export interface Toast {
+  id: string;
+  message: string;
+  type: ToastType;
+}
 
 interface ToastState {
   toasts: Toast[];
   addToast: (message: string, type?: ToastType) => void;
   removeToast: (id: string) => void;
-  pauseToast: (id: string) => void;
-  resumeToast: (id: string) => void;
 }
 
-const timers = new Map<string, ReturnType<typeof setTimeout>>();
-
-export const useToastStore = create<ToastState>()((set, get) => ({
+export const useToastStore = create<ToastState>()((set) => ({
   toasts: [],
-
+  
   addToast: (message, type = 'info') => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const role = type === 'error' ? 'alert' : 'status';
-    const toast: Toast = { id, message, type, role, createdAt: Date.now() };
-
-    set((state) => ({ toasts: [...state.toasts, toast] }));
-
-    const timer = setTimeout(() => {
-      get().removeToast(id);
-    }, TOAST_AUTO_DISMISS_MS);
-    timers.set(id, timer);
+    const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    set((state) => ({ toasts: [...state.toasts, { id, message, type }] }));
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+    }, 3000);
   },
-
-  removeToast: (id) => {
-    const timer = timers.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      timers.delete(id);
-    }
-    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
-  },
-
-  pauseToast: (id) => {
-    const timer = timers.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      timers.delete(id);
-    }
-  },
-
-  resumeToast: (id) => {
-    const timer = setTimeout(() => {
-      get().removeToast(id);
-    }, TOAST_AUTO_DISMISS_MS);
-    timers.set(id, timer);
-  },
+  
+  removeToast: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
 }));

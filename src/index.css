@@ -1,7 +1,18 @@
 @import "tailwindcss";
 
 @theme {
-  /* Surface colors (dark theme) */
+  --color-brand-50: #fef2f2;
+  --color-brand-100: #fee2e2;
+  --color-brand-200: #fecaca;
+  --color-brand-300: #fca5a5;
+  --color-brand-400: #f87171;
+  --color-brand-500: #ef4444;
+  --color-brand-600: #dc2626;
+  --color-brand-700: #b91c1c;
+  --color-brand-800: #991b1b;
+  --color-brand-900: #7f1d1d;
+  --color-brand-950: #450a0a;
+
   --color-surface-50: #f8fafc;
   --color-surface-100: #f1f5f9;
   --color-surface-200: #e2e8f0;
@@ -13,92 +24,75 @@
   --color-surface-800: #1e293b;
   --color-surface-900: #0f172a;
   --color-surface-950: #020617;
-
-  /* Accent */
-  --color-accent-400: #818cf8;
-  --color-accent-500: #6366f1;
-  --color-accent-600: #4f46e5;
-
-  /* Status colors */
-  --color-like: #22c55e;
-  --color-like-dark: #166534;
-  --color-dislike: #f43f5e;
-  --color-dislike-dark: #9f1239;
-  --color-skip: #f59e0b;
-  --color-skip-dark: #92400e;
+  
+  --color-accent-50: #f0fdf4;
+  --color-accent-100: #dcfce7;
+  --color-accent-200: #bbf7d0;
+  --color-accent-300: #86efac;
+  --color-accent-400: #4ade80;
+  --color-accent-500: #22c55e;
+  --color-accent-600: #16a34a;
+  --color-accent-700: #15803d;
+  --color-accent-800: #166534;
+  --color-accent-900: #14532d;
+  --color-accent-950: #052e16;
 }
 
-/* Base reset */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
+@layer base {
+  :root {
+    --background: var(--color-surface-50);
+    --foreground: var(--color-surface-950);
+  }
+  
+  .dark {
+    --background: var(--color-surface-950);
+    --foreground: var(--color-surface-50);
+  }
 
-*:focus-visible {
-  outline: 2px solid var(--color-accent-400);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Retain focus visibility for accessibility */
+  *:focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
 
-html {
-  color-scheme: dark;
-}
+  html {
+    color-scheme: light dark;
+  }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: var(--color-surface-950);
-  color: var(--color-surface-100);
-  min-height: 100dvh;
-  overscroll-behavior: none;
-}
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+    margin: 0;
+  }
 
-#root {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
-}
+  #root {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    /* Safe areas for iOS/Android notches and home bars */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-surface-600);
-  border-radius: 3px;
-}
-
-/* Light theme — invert surface scale so all components adapt automatically */
-html.light {
-  color-scheme: light;
-  --color-surface-50: #020617;
-  --color-surface-100: #0f172a;
-  --color-surface-200: #1e293b;
-  --color-surface-300: #334155;
-  --color-surface-400: #475569;
-  --color-surface-500: #64748b;
-  --color-surface-600: #cbd5e1;
-  --color-surface-700: #e2e8f0;
-  --color-surface-800: #f1f5f9;
-  --color-surface-900: #f8fafc;
-  --color-surface-950: #ffffff;
-}
-
-html.light body {
-  background-color: #ffffff;
-  color: #0f172a;
-}
-
-html.light ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  /* Custom scrollbar for desktop */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-600);
+    border-radius: 3px;
+  }
 }

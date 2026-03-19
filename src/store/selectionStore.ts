@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Selection, SelectionStatus } from '@/types';
-import { UNDO_HISTORY_CAP } from '@/constants';
 import { idbStorage } from './idbStorage';
+import { Selection, SelectionStatus } from '../types';
 
 interface SelectionState {
   selections: Record<number, Selection>;
@@ -12,12 +11,13 @@ interface SelectionState {
   getSelection: (songIndex: number) => Selection | undefined;
   getSelectionsMap: () => Record<number, Selection>;
   clearSelections: () => void;
-  setSelections: (selections: Record<number, Selection>) => void;
   getLikedCount: () => number;
   getDislikedCount: () => number;
   getSkippedCount: () => number;
   getReviewedCount: () => number;
 }
+
+const MAX_HISTORY = 50; // Cap undo history to prevent unbounded growth
 
 export const useSelectionStore = create<SelectionState>()(
   persist(
@@ -25,50 +25,41 @@ export const useSelectionStore = create<SelectionState>()(
       selections: {},
       history: [],
 
-      addSelection: (songIndex, status) => {
+      addSelection: (songIndex, status) => set((state) => {
         const selection: Selection = { songIndex, status, timestamp: Date.now() };
-        set((state) => ({
+        const newHistory = [...state.history, selection].slice(-MAX_HISTORY);
+        return {
           selections: { ...state.selections, [songIndex]: selection },
-          history: [...state.history, selection].slice(-UNDO_HISTORY_CAP),
-        }));
-      },
+          history: newHistory,
+        };
+      }),
 
       undoLast: () => {
         const { history, selections } = get();
         if (history.length === 0) return null;
 
-        const last = history[history.length - 1]!;
+        const lastSelection = history[history.length - 1];
+        const newHistory = history.slice(0, -1);
         const newSelections = { ...selections };
-        delete newSelections[last.songIndex];
+        delete newSelections[lastSelection.songIndex];
 
-        set({
-          selections: newSelections,
-          history: history.slice(0, -1),
-        });
-
-        return last;
+        set({ history: newHistory, selections: newSelections });
+        return lastSelection;
       },
 
       getSelection: (songIndex) => get().selections[songIndex],
       getSelectionsMap: () => get().selections,
+      
       clearSelections: () => set({ selections: {}, history: [] }),
-      setSelections: (selections) => set({ selections }),
 
-      getLikedCount: () =>
-        Object.values(get().selections).filter((s) => s.status === 'liked').length,
-      getDislikedCount: () =>
-        Object.values(get().selections).filter((s) => s.status === 'disliked').length,
-      getSkippedCount: () =>
-        Object.values(get().selections).filter((s) => s.status === 'skipped').length,
+      getLikedCount: () => Object.values(get().selections).filter(s => s.status === 'liked').length,
+      getDislikedCount: () => Object.values(get().selections).filter(s => s.status === 'disliked').length,
+      getSkippedCount: () => Object.values(get().selections).filter(s => s.status === 'skipped').length,
       getReviewedCount: () => Object.keys(get().selections).length,
     }),
     {
       name: 'music-selector-selections',
       storage: createJSONStorage(() => idbStorage),
-      partialize: (state) => ({
-        selections: state.selections,
-        history: state.history,
-      }),
-    },
-  ),
+    }
+  )
 );

@@ -1,106 +1,88 @@
-import { memo, useState, useRef, useEffect, useCallback } from 'react';
-import { Heart, ThumbsDown, SkipForward, Play } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import type { Song, SelectionStatus } from '@/types';
-import { getThumbnailUrl, getFallbackThumbnail } from '@/utils/thumbnail';
-import { getSearchHighlightRanges } from '@/utils/search';
-import { acquireSlot } from '@/utils/imageQueue';
-import { LAZY_LOAD_ROOT_MARGIN } from '@/constants';
+import { useState, useEffect, useRef } from 'react';
+import { Play } from 'lucide-react';
+import { getThumbnailUrl, getFallbackThumbnail } from '../../utils/thumbnail';
+import { usePlayerStore } from '../../store/playerStore';
+import { loadVideoFromGesture } from '../../utils/playerBridge';
+import { useSelectionStore } from '../../store/selectionStore';
+import type { Song } from '../../types';
 
 interface SongRowProps {
   song: Song;
-  selectionStatus?: SelectionStatus;
-  isActive: boolean;
-  searchQuery: string;
-  onPlay: (song: Song) => void;
+  index: number;
 }
 
-const STATUS_CONFIG: Record<SelectionStatus, { icon: typeof Heart; color: string; bg: string }> = {
-  liked: { icon: Heart, color: 'text-like', bg: 'bg-like/10' },
-  disliked: { icon: ThumbsDown, color: 'text-dislike', bg: 'bg-dislike/10' },
-  skipped: { icon: SkipForward, color: 'text-skip', bg: 'bg-skip/10' },
-};
+export default function SongRow({ song, index }: SongRowProps) {
+  const { currentVideoId, isPlaying, setCurrentSong } = usePlayerStore();
+  const { selections } = useSelectionStore();
+  
+  const isActive = currentVideoId === song.videoId;
+  const selection = selections[song.index];
 
-export const SongRow = memo(function SongRow({
-  song,
-  selectionStatus,
-  isActive,
-  searchQuery,
-  onPlay,
-}: SongRowProps) {
-  const { t } = useTranslation();
-
-  const handleClick = useCallback(() => {
-    onPlay(song);
-  }, [onPlay, song]);
-
-  const statusConfig = selectionStatus ? STATUS_CONFIG[selectionStatus] : null;
-  const StatusIcon = statusConfig?.icon;
+  const handlePlay = () => {
+    if (!isActive) {
+      loadVideoFromGesture(song.videoId, true);
+      setCurrentSong(song.videoId, index, true);
+    }
+  };
 
   return (
-    <button
-      onClick={handleClick}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
-        isActive
-          ? 'bg-accent-500/10 border border-accent-500/30'
-          : 'hover:bg-surface-800/70 border border-transparent'
+    <div 
+      onClick={handlePlay}
+      className={`group flex items-center gap-3 p-2 mx-2 rounded-lg cursor-pointer transition-colors ${
+        isActive 
+          ? 'bg-brand-500/10 border border-brand-500/30' 
+          : 'hover:bg-surface-100 dark:hover:bg-surface-800/50 border border-transparent'
       }`}
-      aria-label={t('a11y.songCard', { title: song.title, artist: song.primaryArtist })}
-      aria-current={isActive ? 'true' : undefined}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handlePlay(); }}
     >
-      {/* Thumbnail */}
-      <RowThumbnail
-        src={getThumbnailUrl(song.thumbnail, 'small')}
-        fallback={getFallbackThumbnail(song.videoId, 'small')}
-      />
+      <div className="relative flex-shrink-0 w-12 h-12 rounded overflow-hidden bg-surface-200 dark:bg-surface-800">
+        <RowThumbnail videoId={song.videoId} thumbnail={song.thumbnail} alt={song.title} />
+        
+        {/* Play Overlay */}
+        <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          {isActive && isPlaying ? (
+            <div className="flex gap-1 items-end h-4">
+              <div className="w-1 bg-brand-500 animate-[bounce_1s_infinite] h-full" />
+              <div className="w-1 bg-brand-500 animate-[bounce_1s_infinite_0.2s] h-full" />
+              <div className="w-1 bg-brand-500 animate-[bounce_1s_infinite_0.4s] h-full" />
+            </div>
+          ) : (
+            <Play size={20} className="text-white" fill="currentColor" />
+          )}
+        </div>
+      </div>
 
-      {/* Song info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-surface-100 truncate">
-          <HighlightedText text={song.title} query={searchQuery} />
-        </p>
-        <p className="text-xs text-surface-400 truncate">
-          <HighlightedText text={song.primaryArtist} query={searchQuery} />
+        <h4 className={`text-sm font-medium truncate ${isActive ? 'text-brand-500' : 'text-surface-900 dark:text-surface-50'}`}>
+          {song.title}
+        </h4>
+        <p className="text-xs text-surface-500 truncate">
+          {song.primaryArtist} {song.album ? `• ${song.album}` : ''}
         </p>
       </div>
 
-      {/* Now playing indicator */}
-      {isActive && (
-        <div className="flex items-end gap-0.5 h-4" aria-label={t('library.nowPlaying')}>
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="w-0.5 bg-accent-400 rounded-full animate-pulse"
-              style={{
-                height: `${8 + i * 4}px`,
-                animationDelay: `${i * 0.15}s`,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Status icon */}
-      {StatusIcon && statusConfig && (
-        <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${statusConfig.bg}`}>
-          <StatusIcon size={12} className={statusConfig.color} />
-        </div>
-      )}
-
-      {/* Duration */}
-      <span className="text-xs text-surface-400 tabular-nums shrink-0">
-        {song.duration}
-      </span>
-    </button>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {selection && (
+          <div className={`w-2 h-2 rounded-full ${
+            selection.status === 'liked' ? 'bg-accent-500' : 
+            selection.status === 'disliked' ? 'bg-brand-500' : 
+            'bg-amber-500'
+          }`} />
+        )}
+        <span className="text-xs text-surface-400 font-medium w-10 text-right">
+          {song.duration}
+        </span>
+      </div>
+    </div>
   );
-});
+}
 
-function RowThumbnail({ src, fallback }: { src: string; fallback: string }) {
+function RowThumbnail({ videoId, thumbnail, alt }: { videoId: string; thumbnail: string; alt: string }) {
   const [stage, setStage] = useState(0);
   const [visible, setVisible] = useState(false);
-  const [slotAcquired, setSlotAcquired] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const releaseRef = useRef<(() => void) | null>(null);
+  const ref = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -108,104 +90,52 @@ function RowThumbnail({ src, fallback }: { src: string; fallback: string }) {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) {
+        if (entry.isIntersecting) {
           setVisible(true);
           observer.disconnect();
         }
       },
-      { rootMargin: LAZY_LOAD_ROOT_MARGIN },
+      { rootMargin: '200px' }
     );
-    observer.observe(el);
 
+    observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!visible || slotAcquired) return;
+  const src = stage === 0 
+    ? getThumbnailUrl(thumbnail, 'small') 
+    : stage === 1 
+      ? getFallbackThumbnail(videoId, 'small') 
+      : '';
 
-    let cancelled = false;
-    acquireSlot().then((release) => {
-      if (cancelled) {
-        release();
-        return;
-      }
-      releaseRef.current = release;
-      setSlotAcquired(true);
-    });
+  const handleError = () => {
+    setStage(s => Math.min(s + 1, 2));
+  };
 
-    return () => { cancelled = true; };
-  }, [visible, slotAcquired]);
-
-  const advance = useCallback(() => {
-    setStage((prev) => {
-      if (prev === 0 && fallback && src !== fallback) return 1;
-      return 2;
-    });
-  }, [fallback, src]);
-
-  const handleLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     if (img.naturalWidth < 2 || img.naturalHeight < 2) {
-      advance();
+      handleError();
     }
-    releaseRef.current?.();
-    releaseRef.current = null;
-  }, [advance]);
+  };
 
-  const handleError = useCallback(() => {
-    advance();
-    releaseRef.current?.();
-    releaseRef.current = null;
-  }, [advance]);
+  if (!visible) {
+    return <img ref={ref} className="w-full h-full object-cover" />;
+  }
 
-  const imgSrc = stage === 0 ? (src || fallback) : stage === 1 ? fallback : '';
+  if (stage === 2) {
+    return <div className="w-full h-full bg-surface-200 dark:bg-surface-800 flex items-center justify-center"><Play size={20} className="text-surface-400" /></div>;
+  }
 
   return (
-    <div ref={ref} className="w-10 h-10 rounded-lg overflow-hidden bg-surface-700 shrink-0">
-      {visible && slotAcquired && stage < 2 ? (
-        <img
-          src={imgSrc}
-          alt=""
-          className="w-full h-full object-cover"
-          onLoad={handleLoad}
-          onError={handleError}
-          loading="lazy"
-        />
-      ) : stage >= 2 ? (
-        <div className="w-full h-full flex items-center justify-center">
-          <Play size={14} className="text-surface-500" />
-        </div>
-      ) : (
-        <div className="w-full h-full bg-surface-700" />
-      )}
-    </div>
+    <img 
+      ref={ref}
+      src={src} 
+      alt={alt} 
+      className="w-full h-full object-cover"
+      onError={handleError}
+      onLoad={handleLoad}
+      loading="lazy"
+    />
   );
-}
-
-function HighlightedText({ text, query }: { text: string; query: string }) {
-  if (!query.trim()) return <>{text}</>;
-
-  const ranges = getSearchHighlightRanges(text, query);
-  if (ranges.length === 0) return <>{text}</>;
-
-  const parts: React.ReactNode[] = [];
-  let lastEnd = 0;
-
-  for (const range of ranges) {
-    if (range.start > lastEnd) {
-      parts.push(text.slice(lastEnd, range.start));
-    }
-    parts.push(
-      <mark key={range.start} className="bg-accent-500/30 text-inherit rounded-sm px-0.5">
-        {text.slice(range.start, range.end)}
-      </mark>,
-    );
-    lastEnd = range.end;
-  }
-
-  if (lastEnd < text.length) {
-    parts.push(text.slice(lastEnd));
-  }
-
-  return <>{parts}</>;
 }

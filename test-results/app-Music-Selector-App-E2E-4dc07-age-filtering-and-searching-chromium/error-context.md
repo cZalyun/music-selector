@@ -1,0 +1,175 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - heading "Library" [level=1] [ref=e8]
+        - button "Shuffle Play" [ref=e9]:
+          - img [ref=e10]
+          - text: Shuffle Play
+      - generic [ref=e16]:
+        - generic:
+          - img
+        - textbox "Search title, artist, or album..." [ref=e17]
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - button "All 1146" [ref=e20]:
+            - text: All
+            - generic [ref=e21]: "1146"
+          - button "Liked 0" [ref=e22]:
+            - text: Liked
+            - generic [ref=e23]: "0"
+          - button "Disliked 0" [ref=e24]:
+            - text: Disliked
+            - generic [ref=e25]: "0"
+          - button "Unreviewed 1146" [ref=e26]:
+            - text: Unreviewed
+            - generic [ref=e27]: "1146"
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - generic [ref=e30]: Sort
+            - generic [ref=e31]:
+              - button "#" [ref=e32]:
+                - img [ref=e33]
+                - generic [ref=e36]: "#"
+                - img [ref=e37]
+              - button "Title" [ref=e39]:
+                - img [ref=e40]
+                - generic [ref=e42]: Title
+              - button "Artist" [ref=e43]:
+                - img [ref=e44]
+                - generic [ref=e47]: Artist
+              - button "Length" [ref=e48]:
+                - img [ref=e49]
+                - generic [ref=e52]: Length
+          - generic [ref=e53]:
+            - generic [ref=e54]: Group
+            - combobox [ref=e55] [cursor=pointer]:
+              - option "No Grouping" [selected]
+              - option "Artist"
+              - option "Album"
+              - option "Duration"
+              - option "Status"
+      - generic [ref=e56]: Showing 1146 songs
+      - generic [ref=e59]:
+        - button "Walk Of Life (Remastered 1996) Walk Of Life (Remastered 1996) Dire Straits • Brothers In Arms (Remastered 1996) 4:09" [ref=e61] [cursor=pointer]:
+          - generic [ref=e62]:
+            - img "Walk Of Life (Remastered 1996)" [ref=e63]
+            - img [ref=e65]
+          - generic [ref=e67]:
+            - heading "Walk Of Life (Remastered 1996)" [level=4] [ref=e68]
+            - paragraph [ref=e69]: Dire Straits • Brothers In Arms (Remastered 1996)
+          - generic [ref=e71]: 4:09
+        - 'button "Island Song (Come Along with Me) (feat. Ashley Eriksson) Island Song (Come Along with Me) (feat. Ashley Eriksson) Adventure Time • Adventure Time: Come Along with Me (Original Soundtrack) 1:49" [ref=e73] [cursor=pointer]':
+          - generic [ref=e74]:
+            - img "Island Song (Come Along with Me) (feat. Ashley Eriksson)" [ref=e75]
+            - img [ref=e77]
+          - generic [ref=e79]:
+            - heading "Island Song (Come Along with Me) (feat. Ashley Eriksson)" [level=4] [ref=e80]
+            - paragraph [ref=e81]: "Adventure Time • Adventure Time: Come Along with Me (Original Soundtrack)"
+          - generic [ref=e83]: 1:49
+        - button "Main Theme Extended (Adventure Time:Fionna and Cake - Season 2) Screawy Grafx16(Retirado) 3:42" [ref=e85] [cursor=pointer]:
+          - generic [ref=e86]:
+            - img [ref=e87]
+            - img [ref=e89]
+          - generic [ref=e91]:
+            - heading "Main Theme Extended (Adventure Time:Fionna and Cake - Season 2)" [level=4] [ref=e92]
+            - paragraph [ref=e93]: Screawy Grafx16(Retirado)
+          - generic [ref=e95]: 3:42
+        - 'button "Main Theme (Adventure Time: Fionna and Cake - Season 2) Adventure Time & Amanda Jones • Adventure Time: Fionna and Cake - Season 2 (Soundtrack from the Animated Series) 0:40" [ref=e97] [cursor=pointer]':
+          - generic [ref=e98]:
+            - img [ref=e99]
+            - img [ref=e101]
+          - generic [ref=e103]:
+            - 'heading "Main Theme (Adventure Time: Fionna and Cake - Season 2)" [level=4] [ref=e104]'
+            - paragraph [ref=e105]: "Adventure Time & Amanda Jones • Adventure Time: Fionna and Cake - Season 2 (Soundtrack from the Animated Series)"
+          - generic [ref=e107]: 0:40
+        - button "Cheap Thrills Vitamin String Quartet • VSQ Performs the Hits of 2016, Vol. 2 3:28" [ref=e109] [cursor=pointer]:
+          - generic [ref=e110]:
+            - img [ref=e111]
+            - img [ref=e113]
+          - generic [ref=e115]:
+            - heading "Cheap Thrills" [level=4] [ref=e116]
+            - paragraph [ref=e117]: Vitamin String Quartet • VSQ Performs the Hits of 2016, Vol. 2
+          - generic [ref=e119]: 3:28
+        - button "Viva la Vida The Cairn String Quartet • Mixtape Seven 3:01" [ref=e121] [cursor=pointer]:
+          - generic [ref=e122]:
+            - img [ref=e123]
+            - img [ref=e125]
+          - generic [ref=e127]:
+            - heading "Viva la Vida" [level=4] [ref=e128]
+            - paragraph [ref=e129]: The Cairn String Quartet • Mixtape Seven
+          - generic [ref=e131]: 3:01
+        - button "Love Story (Violin) Dramatic Violin • Love Story (Violin) 2:49" [ref=e133] [cursor=pointer]:
+          - generic [ref=e134]:
+            - img [ref=e135]
+            - img [ref=e137]
+          - generic [ref=e139]:
+            - heading "Love Story (Violin)" [level=4] [ref=e140]
+            - paragraph [ref=e141]: Dramatic Violin • Love Story (Violin)
+          - generic [ref=e143]: 2:49
+        - button "Another Love (Piano Version) Riyandi Kusuma • Piano Collection, Vol. 9 4:08" [ref=e145] [cursor=pointer]:
+          - generic [ref=e146]:
+            - img [ref=e147]
+            - img [ref=e149]
+          - generic [ref=e151]:
+            - heading "Another Love (Piano Version)" [level=4] [ref=e152]
+            - paragraph [ref=e153]: Riyandi Kusuma • Piano Collection, Vol. 9
+          - generic [ref=e155]: 4:08
+        - button "Sweet Dreams (Are Made of This) Simply Three • Sweet Dreams (Are Made of This) 3:09" [ref=e157] [cursor=pointer]:
+          - generic [ref=e158]:
+            - img [ref=e159]
+            - img [ref=e161]
+          - generic [ref=e163]:
+            - heading "Sweet Dreams (Are Made of This)" [level=4] [ref=e164]
+            - paragraph [ref=e165]: Simply Three • Sweet Dreams (Are Made of This)
+          - generic [ref=e167]: 3:09
+        - button "Sing Me To Sleep Peter Buka • Sing Me To Sleep 3:20" [ref=e169] [cursor=pointer]:
+          - generic [ref=e170]:
+            - img [ref=e171]
+            - img [ref=e173]
+          - generic [ref=e175]:
+            - heading "Sing Me To Sleep" [level=4] [ref=e176]
+            - paragraph [ref=e177]: Peter Buka • Sing Me To Sleep
+          - generic [ref=e179]: 3:20
+        - button "I'll Make a Man Out of You Kyle Landry • I'll Make a Man Out of You 3:11" [ref=e181] [cursor=pointer]:
+          - generic [ref=e182]:
+            - img [ref=e183]
+            - img [ref=e185]
+          - generic [ref=e187]:
+            - heading "I'll Make a Man Out of You" [level=4] [ref=e188]
+            - paragraph [ref=e189]: Kyle Landry • I'll Make a Man Out of You
+          - generic [ref=e191]: 3:11
+        - button "Happier (Piano Version) Pianella Piano • EDM Piano Collection, Vol. 2 3:44" [ref=e193] [cursor=pointer]:
+          - generic [ref=e194]:
+            - img [ref=e195]
+            - img [ref=e197]
+          - generic [ref=e199]:
+            - heading "Happier (Piano Version)" [level=4] [ref=e200]
+            - paragraph [ref=e201]: Pianella Piano • EDM Piano Collection, Vol. 2
+          - generic [ref=e203]: 3:44
+  - navigation [ref=e204]:
+    - list [ref=e206]:
+      - listitem [ref=e207]:
+        - link "Upload" [ref=e208] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e209]
+          - generic [ref=e212]: Upload
+      - listitem [ref=e213]:
+        - link "Swipe" [ref=e214] [cursor=pointer]:
+          - /url: "#/swipe"
+          - img [ref=e215]
+          - generic [ref=e218]: Swipe
+      - listitem [ref=e219]:
+        - link "Library" [active] [ref=e220] [cursor=pointer]:
+          - /url: "#/library"
+          - img [ref=e221]
+          - generic [ref=e223]: Library
+      - listitem [ref=e224]:
+        - link "Settings" [ref=e225] [cursor=pointer]:
+          - /url: "#/stats"
+          - img [ref=e226]
+          - generic [ref=e229]: Settings
+```

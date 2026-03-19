@@ -1,45 +1,50 @@
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Download, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { Share } from 'lucide-react';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 
-export function InstallPrompt() {
-  const { canInstall, isIOS, install } = usePWAInstall();
+export default function InstallPrompt() {
+  const { canInstall, isIOS, isInstalled, install } = usePWAInstall();
   const [dismissed, setDismissed] = useState(false);
-  const { t } = useTranslation();
 
-  if (!canInstall || dismissed || isIOS) return null;
+  if (isInstalled || dismissed) return null;
+  if (!canInstall && !isIOS) return null;
+
+  const handleInstall = async () => {
+    await install();
+  };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed z-40 left-4 right-4 bg-surface-800 border border-surface-700 rounded-2xl p-4 shadow-2xl flex items-center gap-3"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      >
-        <Download size={20} className="text-accent-400 shrink-0" />
-        <span className="text-sm text-surface-200 flex-1">
-          {t('pwa.installBanner')}
-        </span>
-        <button
-          onClick={install}
-          className="px-3 py-1.5 bg-accent-500 text-white text-sm font-medium rounded-lg hover:bg-accent-600 transition-colors"
-          aria-label={t('pwa.install')}
-        >
-          {t('pwa.install')}
-        </button>
-        <button
+    <div className="fixed bottom-20 left-4 right-4 z-40 bg-brand-500 text-white p-4 rounded-xl shadow-xl flex flex-col gap-3 mx-auto max-w-sm animate-in slide-in-from-bottom-5">
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="font-bold text-sm">Install Music Selector</h3>
+          <p className="text-xs opacity-90 mt-1">
+            {isIOS 
+              ? 'Install for fullscreen gesture support and offline access.'
+              : 'Add to your home screen for the best experience.'}
+          </p>
+        </div>
+        <button 
           onClick={() => setDismissed(true)}
-          className="p-1 text-surface-400 hover:text-surface-200 transition-colors"
-          aria-label={t('pwa.dismiss')}
+          className="p-1 hover:bg-black/10 rounded-full transition-colors"
         >
-          <X size={16} />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
-      </motion.div>
-    </AnimatePresence>
+      </div>
+
+      {isIOS ? (
+        <div className="bg-black/20 p-3 rounded-lg flex items-center gap-3 text-xs font-medium">
+          <Share size={16} />
+          <span>Tap Share, then 'Add to Home Screen'</span>
+        </div>
+      ) : (
+        <button 
+          onClick={handleInstall}
+          className="bg-white text-brand-600 font-bold py-2 px-4 rounded-lg w-full hover:bg-white/90 transition-colors text-sm"
+        >
+          Install App
+        </button>
+      )}
+    </div>
   );
 }

@@ -1,111 +1,63 @@
 import { motion } from 'framer-motion';
-import { Heart, ThumbsDown, SkipForward, Play, Pause, Undo2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { Play, Pause, Heart, ThumbsDown, SkipForward, Undo2 } from 'lucide-react';
+import { SelectionStatus } from '../../types';
 
 interface SwipeControlsProps {
-  onLike: () => void;
-  onDislike: () => void;
-  onSkip: () => void;
-  onPlayPause: () => void;
+  onSwipe: (status: SelectionStatus) => void;
   onUndo: () => void;
-  isPlaying: boolean;
   canUndo: boolean;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
 }
 
-export function SwipeControls({
-  onLike,
-  onDislike,
-  onSkip,
-  onPlayPause,
-  onUndo,
-  isPlaying,
-  canUndo,
-}: SwipeControlsProps) {
-  const { t } = useTranslation();
-
+export default function SwipeControls({ onSwipe, onUndo, canUndo, isPlaying, onTogglePlay }: SwipeControlsProps) {
   return (
-    <div className="flex items-center justify-center gap-3 py-3">
-      <ControlButton
-        onClick={onDislike}
-        color="bg-dislike/10 text-dislike hover:bg-dislike/20"
-        label={t('a11y.dislikeButton')}
-        size="lg"
-      >
-        <ThumbsDown size={24} />
-      </ControlButton>
-
-      <ControlButton
-        onClick={onSkip}
-        color="bg-skip/10 text-skip hover:bg-skip/20"
-        label={t('a11y.skipButton')}
-        size="md"
-      >
-        <SkipForward size={20} />
-      </ControlButton>
-
-      <ControlButton
-        onClick={onLike}
-        color="bg-like/10 text-like hover:bg-like/20"
-        label={t('a11y.likeButton')}
-        size="lg"
-      >
-        <Heart size={24} />
-      </ControlButton>
-
-      <ControlButton
-        onClick={onPlayPause}
-        color="bg-surface-700 text-surface-200 hover:bg-surface-600"
-        label={t('a11y.playPauseButton')}
-        size="sm"
-      >
-        {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-      </ControlButton>
-
-      <ControlButton
+    <div className="flex items-center justify-center gap-3 w-full py-4 px-2">
+      <motion.button
+        whileTap={{ scale: 0.9 }}
         onClick={onUndo}
-        color="bg-surface-700 text-surface-200 hover:bg-surface-600"
-        label={t('a11y.undoButton')}
-        size="sm"
         disabled={!canUndo}
+        className="p-3 rounded-full bg-surface-200 dark:bg-surface-800 text-surface-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface-300 dark:hover:bg-surface-700 transition-colors"
+        aria-label="Undo last selection"
       >
-        <Undo2 size={16} />
-      </ControlButton>
+        <Undo2 size={24} />
+      </motion.button>
+
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={() => onSwipe('disliked')}
+        className="p-4 rounded-full bg-surface-200 dark:bg-surface-800 text-brand-500 hover:bg-brand-500/10 hover:text-brand-600 transition-colors"
+        aria-label="Dislike"
+      >
+        <ThumbsDown size={32} />
+      </motion.button>
+
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={onTogglePlay}
+        className="p-5 rounded-full bg-brand-500 text-white shadow-lg hover:bg-brand-600 hover:shadow-brand-500/25 transition-all"
+        aria-label={isPlaying ? "Pause" : "Play"}
+      >
+        {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+      </motion.button>
+
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={() => onSwipe('liked')}
+        className="p-4 rounded-full bg-surface-200 dark:bg-surface-800 text-accent-500 hover:bg-accent-500/10 hover:text-accent-600 transition-colors"
+        aria-label="Like"
+      >
+        <Heart size={32} />
+      </motion.button>
+
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={() => onSwipe('skipped')}
+        className="p-3 rounded-full bg-surface-200 dark:bg-surface-800 text-amber-500 hover:bg-amber-500/10 hover:text-amber-600 transition-colors"
+        aria-label="Skip"
+      >
+        <SkipForward size={24} />
+      </motion.button>
     </div>
-  );
-}
-
-function ControlButton({
-  onClick,
-  color,
-  label,
-  size,
-  disabled = false,
-  children,
-}: {
-  onClick: () => void;
-  color: string;
-  label: string;
-  size: 'sm' | 'md' | 'lg';
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  const sizeClass = {
-    sm: 'w-10 h-10',
-    md: 'w-12 h-12',
-    lg: 'w-14 h-14',
-  }[size];
-
-  return (
-    <motion.button
-      onClick={onClick}
-      disabled={disabled}
-      whileTap={{ scale: 0.9 }}
-      className={`${sizeClass} rounded-full flex items-center justify-center transition-colors ${color} ${
-        disabled ? 'opacity-30 cursor-not-allowed' : ''
-      }`}
-      aria-label={label}
-    >
-      {children}
-    </motion.button>
   );
 }

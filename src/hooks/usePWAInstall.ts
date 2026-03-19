@@ -1,64 +1,55 @@
-import { useState, useEffect, useCallback } from 'react';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-function isIPhone(): boolean {
-  return /iPhone|iPod/.test(navigator.userAgent);
-}
-
-function isInStandaloneMode(): boolean {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
+import { useState, useEffect } from 'react';
 
 export function usePWAInstall() {
-  const [deferredPrompt, setDeferredPrompt] =
-    useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(isInStandaloneMode);
-  const [isIOS] = useState(isIPhone);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  
+  // Initialize state directly to avoid cascading renders
+  const [isIOS] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return /iPhone|iPod/.test(window.navigator.userAgent);
+  });
+  
+  const [isInstalled, setIsInstalled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(display-mode: standalone)').matches || 
+           ('standalone' in window.navigator && (window.navigator as any).standalone === true);
+  });
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+      setDeferredPrompt(e);
     };
 
-    const installedHandler = () => {
+    const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
-    window.addEventListener('appinstalled', installedHandler);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
-      window.removeEventListener('appinstalled', installedHandler);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
-  const install = useCallback(async (): Promise<boolean> => {
-    if (!deferredPrompt) return false;
-    try {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+  const install = async () => {
+    if (!deferredPrompt) return;
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
       setDeferredPrompt(null);
-      if (outcome === 'accepted') {
-        setIsInstalled(true);
-        return true;
-      }
-    } catch {
-      // User dismissed or error
     }
-    return false;
-  }, [deferredPrompt]);
+  };
 
-  const canInstall = !isInstalled && (!!deferredPrompt || isIOS);
-
-  return { canInstall, isInstalled, isIOS, install };
+  return {
+    canInstall: !!deferredPrompt,
+    isIOS,
+    isInstalled,
+    install
+  };
 }

@@ -1,31 +1,35 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
-import en from './locales/en.json';
 
+// In a real app, you would load these from separate files
 const resources = {
-  en: { translation: en },
+  en: {
+    translation: {
+      common: {
+        loading: 'Loading...',
+        error: 'An error occurred',
+        save: 'Save',
+        cancel: 'Cancel',
+      },
+      nav: {
+        upload: 'Upload',
+        swipe: 'Swipe',
+        library: 'Library',
+        settings: 'Settings'
+      }
+    }
+  }
 };
 
 i18n
-  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources,
+    lng: 'en', // default language
     fallbackLng: 'en',
     interpolation: {
-      escapeValue: false,
-    },
-    detection: {
-      order: ['localStorage', 'navigator'],
-      caches: ['localStorage'],
-    },
+      escapeValue: false // react already safes from xss
+    }
   });
-
-i18n.on('languageChanged', (lng) => {
-  document.documentElement.setAttribute('lang', lng);
-  const dir = ['ar', 'he', 'fa', 'ur'].includes(lng) ? 'rtl' : 'ltr';
-  document.documentElement.setAttribute('dir', dir);
-});
 
 export default i18n;

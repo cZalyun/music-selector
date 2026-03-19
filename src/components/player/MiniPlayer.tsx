@@ -1,545 +1,325 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { usePlayerStore } from '../../store/playerStore';
+import { useSongStore } from '../../store/songStore';
+import { useSettingsStore } from '../../store/settingsStore';
+import { registerPlayer, unregisterPlayer, consumeGestureLoad } from '../../utils/playerBridge';
+import { Play, Pause, Volume2, VolumeX, Square } from 'lucide-react';
+import { useYouTubeIframeAPI } from '../../hooks/useYouTubeIframeAPI';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  Play,
-  Pause,
-  X,
-  Repeat,
-  Repeat1,
-  Shuffle,
-  SkipForward,
-  Volume2,
-  VolumeX,
-  ExternalLink,
-} from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { usePlayerStore } from '@/store/playerStore';
-import { useSongStore } from '@/store/songStore';
-import { useSettingsStore } from '@/store/settingsStore';
-import { useToastStore } from '@/store/toastStore';
-import { getThumbnailUrl } from '@/utils/thumbnail';
-import { formatTime } from '@/utils/format';
-import {
-  registerPlayer,
-  unregisterPlayer,
-  consumeGestureLoad,
-  isGestureLoadPending,
-  loadVideoFromGesture,
-  setPreWarmed,
-} from '@/utils/playerBridge';
-import {
-  PROGRESS_POLL_MS,
-  AUTOPLAY_TIMEOUT_MS,
-  DEFAULT_VOLUME,
-} from '@/constants';
-import { useLocation } from 'react-router-dom';
 
-let ytApiLoaded = false;
-let ytApiLoading = false;
-
-function loadYTApi(): Promise<void> {
-  if (ytApiLoaded) return Promise.resolve();
-  if (ytApiLoading) {
-    return new Promise((resolve) => {
-      const check = setInterval(() => {
-        if (ytApiLoaded) {
-          clearInterval(check);
-          resolve();
-        }
-      }, 100);
-    });
-  }
-  ytApiLoading = true;
-  return new Promise((resolve) => {
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    const firstScript = document.getElementsByTagName('script')[0];
-    firstScript?.parentNode?.insertBefore(tag, firstScript);
-    window.onYouTubeIframeAPIReady = () => {
-      ytApiLoaded = true;
-      ytApiLoading = false;
-      resolve();
-    };
-  });
-}
-
-export function MiniPlayer() {
-  const { t } = useTranslation();
-  const location = useLocation();
-  const isSwipePage = location.pathname === '/swipe';
-
-  const currentVideoId = usePlayerStore((s) => s.currentVideoId);
-  const currentSongIndex = usePlayerStore((s) => s.currentSongIndex);
-  const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const volume = usePlayerStore((s) => s.volume);
-  const setPlaying = usePlayerStore((s) => s.setPlaying);
-  const setVolume = usePlayerStore((s) => s.setVolume);
-  const setCurrentSong = usePlayerStore((s) => s.setCurrentSong);
-  const stop = usePlayerStore((s) => s.stop);
-
-  const songs = useSongStore((s) => s.songs);
-  const loopMode = useSettingsStore((s) => s.loopMode);
-  const autoContinue = useSettingsStore((s) => s.autoContinue);
-  const shufflePlayback = useSettingsStore((s) => s.shufflePlayback);
-  const autoplay = useSettingsStore((s) => s.autoplay);
-  const cycleLoopMode = useSettingsStore((s) => s.cycleLoopMode);
-  const toggleAutoContinue = useSettingsStore((s) => s.toggleAutoContinue);
-  const toggleShufflePlayback = useSettingsStore((s) => s.toggleShufflePlayback);
-  const addToast = useToastStore((s) => s.addToast);
-
+export default function MiniPlayer() {
+  const isYouTubeAPIReady = useYouTubeIframeAPI();
   const playerRef = useRef<YT.Player | null>(null);
-  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const loadingRef = useRef(false);
-  const autoplayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [progress, setProgress] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressInterval = useRef<number | null>(null);
+  
+  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [seeking, setSeeking] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
   const [seekValue, setSeekValue] = useState(0);
-  const [showTapToPlay, setShowTapToPlay] = useState(false);
+  
+  const { currentVideoId, currentSongIndex, isPlaying, volume, setCurrentSong, setPlaying, setVolume, stop } = usePlayerStore();
+  const { songs } = useSongStore();
+  const { loopMode, autoContinue, shufflePlayback } = useSettingsStore();
+  
+  const currentSong = currentSongIndex !== null ? songs[currentSongIndex] : null;
 
-  const currentSong = currentSongIndex !== null ? songs.find((s) => s.index === currentSongIndex) ?? null : null;
+  // Format time
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
-  // Update media session metadata
+  // Setup Player
   useEffect(() => {
-    if (!currentSong || !('mediaSession' in navigator)) return;
+    if (!isYouTubeAPIReady || !containerRef.current || playerRef.current) return;
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentSong.title,
-      artist: currentSong.primaryArtist,
-      album: currentSong.album || undefined,
-      artwork: [
-        { src: getThumbnailUrl(currentSong.thumbnail, 'small'), sizes: '96x96', type: 'image/jpeg' },
-        { src: getThumbnailUrl(currentSong.thumbnail, 'small'), sizes: '192x192', type: 'image/jpeg' },
-        { src: getThumbnailUrl(currentSong.thumbnail, 'large'), sizes: '512x512', type: 'image/jpeg' },
-      ],
-    });
-  }, [currentSong]);
-
-  // Media session action handlers
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-
-    const handlers: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
-      ['play', () => { playerRef.current?.playVideo(); setPlaying(true); }],
-      ['pause', () => { playerRef.current?.pauseVideo(); setPlaying(false); }],
-      ['nexttrack', () => playAdjacentSong(1)],
-      ['previoustrack', () => playAdjacentSong(-1)],
-    ];
-
-    handlers.forEach(([action, handler]) => {
-      try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* unsupported */ }
+    playerRef.current = new window.YT.Player(containerRef.current, {
+      height: '0',
+      width: '0',
+      playerVars: {
+        autoplay: 0,
+        controls: 0,
+        disablekb: 1,
+        modestbranding: 1,
+        playsinline: 1,
+      },
+      events: {
+        onReady: (event) => {
+          registerPlayer(event.target);
+          event.target.setVolume(volume);
+        },
+        onStateChange: (event) => {
+          if (event.data === window.YT.PlayerState.PLAYING) {
+            setPlaying(true);
+            setDuration(event.target.getDuration());
+          } else if (event.data === window.YT.PlayerState.PAUSED) {
+            // Check if this pause is just a transition between songs triggered by gesture
+            if (!currentVideoId) {
+                setPlaying(false);
+            }
+          } else if (event.data === window.YT.PlayerState.ENDED) {
+            handleSongEnd();
+          }
+        },
+        onError: (event) => {
+          console.error('YouTube Player Error:', event.data);
+          // Auto-advance on error
+          handleSongEnd();
+        }
+      }
     });
 
     return () => {
-      handlers.forEach(([action]) => {
-        try { navigator.mediaSession.setActionHandler(action, null); } catch { /* unsupported */ }
-      });
+      unregisterPlayer();
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSongIndex, songs]);
+  }, [isYouTubeAPIReady]); // Only run once when API is ready
 
-  // Update media session playback state
+  const handleSongEnd = useCallback(() => {
+    if (!currentSong) return;
+
+    if (loopMode === 'one') {
+      playerRef.current?.seekTo(0, true);
+      playerRef.current?.playVideo();
+    } else if (autoContinue) {
+      let nextIndex = currentSongIndex! + 1;
+      
+      if (shufflePlayback) {
+        nextIndex = Math.floor(Math.random() * songs.length);
+      } else if (nextIndex >= songs.length) {
+        if (loopMode === 'all') {
+          nextIndex = 0;
+        } else {
+          stop();
+          return;
+        }
+      }
+      
+      const nextSong = songs[nextIndex];
+      setCurrentSong(nextSong.videoId, nextIndex, true);
+    } else {
+      stop();
+    }
+  }, [currentSong, currentSongIndex, songs, loopMode, autoContinue, shufflePlayback, setCurrentSong, stop]);
+
+  // Handle current video changes
   useEffect(() => {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    if (!playerRef.current || typeof playerRef.current.loadVideoById !== 'function') return;
+    
+    if (currentVideoId) {
+      const { consumed, shouldPlay } = consumeGestureLoad(currentVideoId);
+      
+      if (!consumed) {
+         playerRef.current.loadVideoById(currentVideoId);
+         if (isPlaying) {
+             playerRef.current.playVideo();
+         }
+      } else {
+          // If gesture load was consumed, state might need aligning
+          if (shouldPlay && !isPlaying) {
+              setPlaying(true);
+          }
+      }
+    } else {
+      playerRef.current.stopVideo();
+    }
+  }, [currentVideoId]);
+
+  // Handle play/pause state
+  useEffect(() => {
+    if (!playerRef.current || !currentVideoId) return;
+
+    if (isPlaying) {
+      playerRef.current.playVideo();
+    } else {
+      playerRef.current.pauseVideo();
     }
   }, [isPlaying]);
 
-  // Visibility change: resync progress
-  useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState === 'visible' && playerRef.current) {
-        try {
-          setProgress(playerRef.current.getCurrentTime());
-          setDuration(playerRef.current.getDuration());
-        } catch { /* player may be destroyed */ }
-      }
-    };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
-
-  const playAdjacentSong = useCallback((direction: 1 | -1) => {
-    if (currentSongIndex === null || songs.length === 0) return;
-
-    let nextSong;
-    if (shufflePlayback) {
-      const randomPos = Math.floor(Math.random() * songs.length);
-      nextSong = songs[randomPos];
-    } else {
-      const currentPos = songs.findIndex((s) => s.index === currentSongIndex);
-      if (currentPos === -1) return;
-      let nextPos = currentPos + direction;
-      if (nextPos >= songs.length) nextPos = 0;
-      if (nextPos < 0) nextPos = songs.length - 1;
-      nextSong = songs[nextPos];
-    }
-
-    if (nextSong) {
-      loadVideoFromGesture(nextSong.videoId, true);
-      setCurrentSong(nextSong.videoId, nextSong.index, true);
-    }
-  }, [currentSongIndex, songs, shufflePlayback, setCurrentSong]);
-
-  // Initialize/update YT player
-  useEffect(() => {
-    if (!currentVideoId) return;
-
-    const gestureResult = consumeGestureLoad(currentVideoId);
-    if (gestureResult.consumed) {
-      loadingRef.current = false;
-      setPreWarmed();
-      return;
-    }
-
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-
-    const initPlayer = async () => {
-      await loadYTApi();
-
-      if (playerRef.current) {
-        try {
-          playerRef.current.loadVideoById(currentVideoId);
-          if (autoplay) {
-            playerRef.current.playVideo();
-          }
-        } catch { /* ignore */ }
-        loadingRef.current = false;
-        return;
-      }
-
-      const player = new window.YT.Player('yt-player', {
-        height: '1',
-        width: '1',
-        videoId: currentVideoId,
-        playerVars: {
-          autoplay: autoplay ? 1 : 0,
-          controls: 0,
-          disablekb: 1,
-          modestbranding: 1,
-          playsinline: 1,
-        },
-        events: {
-          onReady: (event: YT.PlayerEvent) => {
-            playerRef.current = event.target;
-            registerPlayer(event.target);
-            event.target.setVolume(volume);
-            setPreWarmed();
-            loadingRef.current = false;
-          },
-          onStateChange: handleStateChange,
-          onError: handleError,
-        },
-      });
-
-      playerRef.current = player;
-    };
-
-    initPlayer();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentVideoId]);
-
-  // Volume sync
+  // Handle volume changes
   useEffect(() => {
     if (playerRef.current) {
-      try { playerRef.current.setVolume(volume); } catch { /* ignore */ }
+      playerRef.current.setVolume(volume);
     }
   }, [volume]);
 
   // Progress polling
   useEffect(() => {
-    if (progressInterval.current) {
-      clearInterval(progressInterval.current);
-      progressInterval.current = null;
-    }
+    const updateProgress = () => {
+      if (playerRef.current && isPlaying && !isSeeking) {
+        try {
+          const time = playerRef.current.getCurrentTime();
+          if (time !== undefined) {
+             setCurrentTime(time);
+          }
+        } catch(e) {}
+      }
+    };
 
-    if (isPlaying && playerRef.current) {
-      progressInterval.current = setInterval(() => {
-        if (playerRef.current && !seeking) {
-          try {
-            setProgress(playerRef.current.getCurrentTime());
-            setDuration(playerRef.current.getDuration());
-          } catch { /* ignore */ }
-        }
-      }, PROGRESS_POLL_MS);
+    if (isPlaying) {
+      progressInterval.current = window.setInterval(updateProgress, 500);
+    } else if (progressInterval.current) {
+      window.clearInterval(progressInterval.current);
     }
 
     return () => {
       if (progressInterval.current) {
-        clearInterval(progressInterval.current);
-        progressInterval.current = null;
+        window.clearInterval(progressInterval.current);
       }
     };
-  }, [isPlaying, seeking]);
+  }, [isPlaying, isSeeking]);
 
-  // Cleanup on unmount
+  // Resync on visibility change (for background playback)
   useEffect(() => {
-    return () => {
-      if (progressInterval.current) clearInterval(progressInterval.current);
-      if (autoplayTimeoutRef.current) clearTimeout(autoplayTimeoutRef.current);
-      if (playerRef.current) {
-        unregisterPlayer();
-        try { playerRef.current.destroy(); } catch { /* ignore */ }
-        playerRef.current = null;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && playerRef.current) {
+        try {
+           setCurrentTime(playerRef.current.getCurrentTime() || 0);
+           setDuration(playerRef.current.getDuration() || 0);
+        } catch(e) {}
       }
     };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  function handleStateChange(event: YT.PlayerEvent) {
-    const state = event.data;
+  // Media Session API for lock screen controls
+  useEffect(() => {
+    if ('mediaSession' in navigator && currentSong) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title,
+        artist: currentSong.primaryArtist,
+        album: currentSong.album || undefined,
+        artwork: [
+          { src: currentSong.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+          { src: currentSong.thumbnail, sizes: '192x192', type: 'image/jpeg' },
+          { src: currentSong.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+        ],
+      });
 
-    if (autoplayTimeoutRef.current) {
-      clearTimeout(autoplayTimeoutRef.current);
-      autoplayTimeoutRef.current = null;
+      navigator.mediaSession.setActionHandler('play', () => setPlaying(true));
+      navigator.mediaSession.setActionHandler('pause', () => setPlaying(false));
+      
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+         let nextIndex = currentSongIndex! + 1;
+         if (nextIndex >= songs.length) nextIndex = 0;
+         setCurrentSong(songs[nextIndex].videoId, nextIndex, true);
+      });
+      
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+         let prevIndex = currentSongIndex! - 1;
+         if (prevIndex < 0) prevIndex = songs.length - 1;
+         setCurrentSong(songs[prevIndex].videoId, prevIndex, true);
+      });
     }
+  }, [currentSong, currentSongIndex, songs, setCurrentSong, setPlaying]);
 
-    if (state === YT.PlayerState.PLAYING) {
-      setPlaying(true);
-      setShowTapToPlay(false);
-      try {
-        setDuration(event.target.getDuration());
-      } catch { /* ignore */ }
-    } else if (state === YT.PlayerState.PAUSED) {
-      if (!isGestureLoadPending()) {
-        setPlaying(false);
+  useEffect(() => {
+      if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
       }
-    } else if (state === YT.PlayerState.ENDED) {
-      handleSongEnded();
-    } else if (state === YT.PlayerState.UNSTARTED || state === YT.PlayerState.CUED) {
-      // Autoplay may have been blocked
-      autoplayTimeoutRef.current = setTimeout(() => {
-        if (playerRef.current) {
-          const playerState = playerRef.current.getPlayerState();
-          if (playerState === YT.PlayerState.UNSTARTED || playerState === YT.PlayerState.CUED) {
-            setPlaying(false);
-            setShowTapToPlay(true);
-          }
-        }
-      }, AUTOPLAY_TIMEOUT_MS);
-    }
-  }
+  }, [isPlaying]);
 
-  function handleError(event: YT.PlayerEvent) {
-    const code = event.data;
-    if (code === 100 || code === 101 || code === 150) {
-      addToast(t('player.videoUnavailable'), 'error');
-    } else {
-      addToast(t('player.videoError'), 'error');
-    }
-    // Auto-advance on error
-    if (autoContinue) {
-      setTimeout(() => playAdjacentSong(1), 500);
-    }
-  }
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsSeeking(true);
+    setSeekValue(Number(e.target.value));
+  };
 
-  function handleSongEnded() {
-    if (loopMode === 'one') {
-      playerRef.current?.seekTo(0, true);
-      playerRef.current?.playVideo();
-    } else if (autoContinue || loopMode === 'all') {
-      playAdjacentSong(1);
-    } else {
-      setPlaying(false);
-    }
-  }
-
-  function togglePlay() {
-    if (!playerRef.current) return;
-    if (isPlaying) {
-      playerRef.current.pauseVideo();
-      setPlaying(false);
-    } else {
-      playerRef.current.playVideo();
-      setPlaying(true);
-      setShowTapToPlay(false);
-    }
-  }
-
-  function handleStop() {
-    if (playerRef.current) {
-      try { playerRef.current.stopVideo(); } catch { /* ignore */ }
-    }
-    stop();
-    setProgress(0);
-    setDuration(0);
-    setShowTapToPlay(false);
-  }
-
-  function handleSeekChange(value: number) {
-    setSeeking(true);
-    setSeekValue(value);
-  }
-
-  function commitSeek() {
+  const handleSeekCommit = () => {
     if (playerRef.current) {
       playerRef.current.seekTo(seekValue, true);
+      setCurrentTime(seekValue);
     }
-    setProgress(seekValue);
-    setSeeking(false);
+    setIsSeeking(false);
+  };
+
+  if (!currentSong) {
+      return <div ref={containerRef} className="hidden" />;
   }
-
-  const loopLabel = t(`player.loop.${loopMode}`);
-
-  if (!currentVideoId || !currentSong) return <div id="yt-player" className="hidden" />;
 
   return (
     <>
-      <div id="yt-player" className="fixed -top-[9999px] -left-[9999px] w-px h-px overflow-hidden" />
-
+      <div ref={containerRef} className="hidden" />
       <AnimatePresence>
         <motion.div
-          className="fixed left-0 right-0 z-30 bg-surface-900/95 backdrop-blur-sm border-t border-surface-700"
-          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
-          initial={{ y: 100 }}
-          animate={{ y: 0 }}
-          exit={{ y: 100 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 100, opacity: 0 }}
+          className="fixed bottom-0 left-0 right-0 z-40 bg-surface-100 dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800 shadow-lg"
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }} // Above BottomNav
         >
-          <div className="max-w-lg mx-auto px-3 py-2">
-            {/* Song info row */}
-            <div className="flex items-center gap-3 mb-2">
-              <img
-                src={getThumbnailUrl(currentSong.thumbnail, 'small')}
-                alt=""
-                className="w-10 h-10 rounded-lg object-cover bg-surface-700"
-                loading="eager"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-surface-100 truncate">
-                  {currentSong.title}
-                </p>
-                <p className="text-xs text-surface-400 truncate">
-                  {currentSong.primaryArtist}
-                </p>
-              </div>
-
-              {/* Tap to play overlay */}
-              {showTapToPlay && (
-                <button
-                  onClick={togglePlay}
-                  className="text-xs text-accent-400 font-medium animate-pulse"
-                  aria-label={t('player.tapToPlay')}
-                >
-                  {t('player.tapToPlay')}
-                </button>
-              )}
-
-              {/* Controls */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={togglePlay}
-                  className="p-2 text-surface-200 hover:text-white transition-colors"
-                  aria-label={isPlaying ? t('player.pause') : t('player.play')}
-                >
-                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-                </button>
-                <button
-                  onClick={handleStop}
-                  className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
-                  aria-label={t('player.stop')}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Seek bar */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-surface-500 w-8 text-right tabular-nums">
-                {formatTime(seeking ? seekValue : progress)}
-              </span>
+          <div className="mx-auto max-w-lg p-3">
+            {/* Progress Bar */}
+            <div className="flex items-center gap-2 text-xs text-surface-500 mb-2">
+              <span className="w-10 text-right">{formatTime(isSeeking ? seekValue : currentTime)}</span>
               <input
                 type="range"
                 min={0}
-                max={duration || 1}
-                step={0.1}
-                value={seeking ? seekValue : progress}
-                onChange={(e) => handleSeekChange(parseFloat(e.target.value))}
-                onMouseUp={commitSeek}
-                onTouchStart={(e) => { e.stopPropagation(); setSeeking(true); }}
-                onTouchEnd={commitSeek}
-                className="flex-1 h-1 accent-accent-500 cursor-pointer touch-none"
-                aria-label="Seek"
+                max={duration || 100}
+                value={isSeeking ? seekValue : currentTime}
+                onChange={handleSeekChange}
+                onMouseUp={handleSeekCommit}
+                onTouchEnd={handleSeekCommit}
+                className="flex-1 h-1 bg-surface-300 dark:bg-surface-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
               />
-              <span className="text-[10px] text-surface-500 w-8 tabular-nums">
-                {formatTime(duration)}
-              </span>
+              <span className="w-10">{formatTime(duration)}</span>
             </div>
 
-            {/* Extended controls (hidden on swipe page) */}
-            {!isSwipePage && (
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={cycleLoopMode}
-                    className={`p-1.5 transition-colors ${
-                      loopMode !== 'off' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'
-                    }`}
-                    aria-label={loopLabel}
-                    title={loopLabel}
-                  >
-                    {loopMode === 'one' ? <Repeat1 size={14} /> : <Repeat size={14} />}
-                  </button>
-                  <button
-                    onClick={toggleAutoContinue}
-                    className={`p-1.5 transition-colors ${
-                      autoContinue ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'
-                    }`}
-                    aria-label={t('player.autoContinue')}
-                    title={t('player.autoContinue')}
-                  >
-                    <SkipForward size={14} />
-                  </button>
-                  <button
-                    onClick={toggleShufflePlayback}
-                    className={`p-1.5 transition-colors ${
-                      shufflePlayback ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'
-                    }`}
-                    aria-label={t('player.shuffle')}
-                    title={t('player.shuffle')}
-                  >
-                    <Shuffle size={14} />
-                  </button>
+            <div className="flex items-center justify-between">
+              {/* Song Info */}
+              <div className="flex items-center gap-3 overflow-hidden flex-1">
+                <img 
+                  src={currentSong.thumbnail} 
+                  alt={currentSong.title} 
+                  className="w-12 h-12 rounded object-cover flex-shrink-0 bg-surface-200 dark:bg-surface-800"
+                />
+                <div className="overflow-hidden">
+                  <h3 className="text-sm font-semibold truncate text-surface-900 dark:text-surface-50">
+                    {currentSong.title}
+                  </h3>
+                  <p className="text-xs text-surface-500 truncate">
+                    {currentSong.primaryArtist}
+                  </p>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-1">
-                  {/* YouTube link */}
-                  {currentSong.youtubeWatchUrl && (
-                    <a
-                      href={currentSong.youtubeWatchUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 text-surface-500 hover:text-surface-300 transition-colors"
-                      aria-label={t('player.openOnYoutube')}
-                      title={t('player.openOnYoutube')}
-                    >
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
-
-                  {/* Volume (desktop only) */}
-                  <button
-                    onClick={() => setVolume(volume === 0 ? DEFAULT_VOLUME : 0)}
-                    className="hidden sm:block p-1.5 text-surface-500 hover:text-surface-300 transition-colors"
-                    aria-label={volume === 0 ? t('player.unmute') : t('player.mute')}
-                  >
-                    {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              {/* Controls */}
+              <div className="flex items-center gap-2 ml-4">
+                <button 
+                  onClick={() => setPlaying(!isPlaying)}
+                  className="p-2 bg-brand-500 text-white rounded-full hover:bg-brand-600 transition-colors"
+                >
+                  {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
+                </button>
+                <button 
+                  onClick={stop}
+                  className="p-2 text-surface-500 hover:text-brand-500 transition-colors"
+                >
+                  <Square size={18} />
+                </button>
+                
+                {/* Desktop Volume */}
+                <div className="hidden sm:flex items-center gap-2 ml-2 pl-2 border-l border-surface-200 dark:border-surface-700">
+                  <button onClick={() => setVolume(volume === 0 ? 70 : 0)} className="text-surface-500 hover:text-brand-500">
+                    {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
                   </button>
                   <input
                     type="range"
                     min={0}
                     max={100}
                     value={volume}
-                    onChange={(e) => setVolume(parseInt(e.target.value, 10))}
-                    onTouchStart={(e) => e.stopPropagation()}
-                    className="hidden sm:block w-14 h-1 accent-accent-500 cursor-pointer touch-none"
-                    aria-label={t('player.volume')}
+                    onChange={(e) => setVolume(Number(e.target.value))}
+                    className="w-16 h-1 bg-surface-300 dark:bg-surface-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
                   />
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>

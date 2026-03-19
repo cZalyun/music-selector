@@ -1,166 +1,168 @@
-import { useState, useRef } from 'react';
-import { Download, Trash2, Save, FileJson } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useSongStore } from '@/store/songStore';
-import { useSelectionStore } from '@/store/selectionStore';
-import { useToastStore } from '@/store/toastStore';
-import { exportToCSV, exportJSON } from '@/utils/csv';
-import { formatDateISO } from '@/utils/format';
-import { ConfirmModal } from '@/components/ui/ConfirmModal';
-import type { Song, Selection } from '@/types';
+import { useState } from 'react';
+import { useSongStore } from '../../store/songStore';
+import { useSelectionStore } from '../../store/selectionStore';
+import { exportToCSV, exportJSON } from '../../utils/csv';
+import { Download, Upload, Trash2, Database } from 'lucide-react';
+import { useToastStore } from '../../store/toastStore';
 
-export function ExportPanel() {
-  const { t } = useTranslation();
-  const songs = useSongStore((s) => s.songs);
-  const setSongs = useSongStore((s) => s.setSongs);
-  const clearSongs = useSongStore((s) => s.clearSongs);
-  const selections = useSelectionStore((s) => s.selections);
-  const setSelections = useSelectionStore((s) => s.setSelections);
-  const clearSelections = useSelectionStore((s) => s.clearSelections);
-  const addToast = useToastStore((s) => s.addToast);
+export default function ExportPanel() {
+  const { songs, clearSongs } = useSongStore();
+  const { selections, clearSelections } = useSelectionStore();
+  const { addToast } = useToastStore();
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
-  const [resetModalOpen, setResetModalOpen] = useState(false);
-  const restoreInputRef = useRef<HTMLInputElement>(null);
+  const handleExportLikedCSV = () => {
+    if (songs.length === 0) return;
+    const likedSongs = songs.filter(s => selections[s.index]?.status === 'liked');
+    const dateStr = new Date().toISOString().split('T')[0];
+    exportToCSV(likedSongs, `liked_songs_${dateStr}.csv`);
+    addToast(`Exported ${likedSongs.length} liked songs.`, 'success');
+  };
 
-  function handleExportLiked() {
-    const liked = songs.filter((s) => selections[s.index]?.status === 'liked');
-    if (liked.length === 0) {
-      addToast(t('export.noLikedSongs'), 'info');
-      return;
-    }
-    exportToCSV(liked, `liked_songs_${formatDateISO()}.csv`);
-    addToast(t('export.exportSuccess', { count: liked.length }), 'success');
-  }
+  const handleExportAllCSV = () => {
+    if (songs.length === 0) return;
+    const dateStr = new Date().toISOString().split('T')[0];
+    exportToCSV(songs, `all_songs_${dateStr}.csv`);
+    addToast(`Exported all ${songs.length} songs.`, 'success');
+  };
 
-  function handleExportAll() {
-    if (songs.length === 0) {
-      addToast(t('export.noSongs'), 'info');
-      return;
-    }
-    exportToCSV(songs, `all_songs_${formatDateISO()}.csv`);
-    addToast(t('export.exportSuccess', { count: songs.length }), 'success');
-  }
+  const handleBackupJSON = () => {
+    if (songs.length === 0) return;
+    const dateStr = new Date().toISOString().split('T')[0];
+    exportJSON({ songs, selections }, `music_selector_backup_${dateStr}.json`);
+    addToast('Backup downloaded successfully.', 'success');
+  };
 
-  function handleBackup() {
-    if (songs.length === 0) {
-      addToast(t('export.noSongs'), 'info');
-      return;
-    }
-    const data = { songs, selections };
-    exportJSON(data, `music_selector_backup_${formatDateISO()}.json`);
-    addToast(t('export.exportSuccess', { count: songs.length }), 'success');
-  }
-
-  function handleRestore() {
-    restoreInputRef.current?.click();
-  }
-
-  function handleRestoreFile(e: React.ChangeEvent<HTMLInputElement>) {
+  const handleRestoreJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = (event) => {
       try {
-        const data = JSON.parse(reader.result as string) as {
-          songs?: Song[];
-          selections?: Record<number, Selection>;
-        };
-
-        if (!data.songs || !Array.isArray(data.songs)) {
-          addToast(t('export.restoreError'), 'error');
-          return;
+        const content = event.target?.result as string;
+        const data = JSON.parse(content);
+        
+        if (data.songs && Array.isArray(data.songs) && data.selections) {
+          useSongStore.getState().setSongs(data.songs, file.name);
+          useSelectionStore.setState({ selections: data.selections, history: [] });
+          addToast(`Restored ${data.songs.length} songs and selections!`, 'success');
+        } else {
+          throw new Error('Invalid backup format');
         }
-
-        setSongs(data.songs, null);
-        if (data.selections) {
-          setSelections(data.selections);
-        }
-
-        const selCount = data.selections ? Object.keys(data.selections).length : 0;
-        addToast(
-          t('export.restoreSuccess', { songs: data.songs.length, selections: selCount }),
-          'success',
-        );
-      } catch {
-        addToast(t('export.restoreError'), 'error');
+      } catch (err) {
+        addToast('Failed to restore backup. Invalid file format.', 'error');
+        console.error(err);
       }
+      
+      // Reset input so the same file can be selected again if needed
+      e.target.value = '';
     };
     reader.readAsText(file);
+  };
 
-    // Reset input
-    e.target.value = '';
-  }
-
-  function handleReset() {
+  const handleReset = () => {
     clearSongs();
     clearSelections();
-    setResetModalOpen(false);
-    addToast(t('export.resetConfirm.confirm'), 'success');
-  }
+    setIsResetConfirmOpen(false);
+    addToast('All data has been cleared.', 'info');
+  };
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-medium text-surface-300 mb-2">{t('export.title')}</h3>
+    <div className="flex flex-col gap-4 w-full mx-auto max-w-lg p-4">
+      <h3 className="text-xl font-bold mb-2">Export & Data</h3>
 
-      <ActionButton onClick={handleExportLiked} icon={Download} label={t('export.likedCsv')} />
-      <ActionButton onClick={handleExportAll} icon={Download} label={t('export.allCsv')} />
-      <ActionButton onClick={handleBackup} icon={Save} label={t('export.backupJson')} />
-      <ActionButton onClick={handleRestore} icon={FileJson} label={t('export.restore')} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          onClick={handleExportLikedCSV}
+          disabled={songs.length === 0}
+          className="flex items-center gap-3 p-4 bg-surface-100 dark:bg-surface-900 rounded-xl hover:bg-surface-200 dark:hover:bg-surface-800 transition-colors disabled:opacity-50 text-left border border-surface-200 dark:border-surface-800"
+        >
+          <div className="p-2 bg-accent-500/10 text-accent-500 rounded-lg">
+            <Download size={20} />
+          </div>
+          <div>
+            <div className="font-semibold text-sm">Export Liked (CSV)</div>
+            <div className="text-xs text-surface-500">Only songs you've liked</div>
+          </div>
+        </button>
 
-      <input
-        ref={restoreInputRef}
-        type="file"
-        accept=".json"
-        onChange={handleRestoreFile}
-        className="hidden"
-        aria-hidden="true"
-      />
+        <button
+          onClick={handleExportAllCSV}
+          disabled={songs.length === 0}
+          className="flex items-center gap-3 p-4 bg-surface-100 dark:bg-surface-900 rounded-xl hover:bg-surface-200 dark:hover:bg-surface-800 transition-colors disabled:opacity-50 text-left border border-surface-200 dark:border-surface-800"
+        >
+          <div className="p-2 bg-brand-500/10 text-brand-500 rounded-lg">
+            <Download size={20} />
+          </div>
+          <div>
+            <div className="font-semibold text-sm">Export All (CSV)</div>
+            <div className="text-xs text-surface-500">Full library data</div>
+          </div>
+        </button>
 
-      <div className="pt-2 border-t border-surface-700">
-        <ActionButton
-          onClick={() => setResetModalOpen(true)}
-          icon={Trash2}
-          label={t('export.reset')}
-          destructive
-        />
+        <button
+          onClick={handleBackupJSON}
+          disabled={songs.length === 0}
+          className="flex items-center gap-3 p-4 bg-surface-100 dark:bg-surface-900 rounded-xl hover:bg-surface-200 dark:hover:bg-surface-800 transition-colors disabled:opacity-50 text-left border border-surface-200 dark:border-surface-800"
+        >
+          <div className="p-2 bg-surface-200 dark:bg-surface-800 text-surface-700 dark:text-surface-300 rounded-lg">
+            <Database size={20} />
+          </div>
+          <div>
+            <div className="font-semibold text-sm">Backup (JSON)</div>
+            <div className="text-xs text-surface-500">Songs + Selections</div>
+          </div>
+        </button>
+
+        <label className="flex items-center gap-3 p-4 bg-surface-100 dark:bg-surface-900 rounded-xl hover:bg-surface-200 dark:hover:bg-surface-800 transition-colors cursor-pointer border border-surface-200 dark:border-surface-800">
+          <div className="p-2 bg-surface-200 dark:bg-surface-800 text-surface-700 dark:text-surface-300 rounded-lg">
+            <Upload size={20} />
+          </div>
+          <div>
+            <div className="font-semibold text-sm">Restore Backup</div>
+            <div className="text-xs text-surface-500">From JSON file</div>
+          </div>
+          <input
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleRestoreJSON}
+          />
+        </label>
       </div>
 
-      <ConfirmModal
-        open={resetModalOpen}
-        title={t('export.resetConfirm.title')}
-        message={t('export.resetConfirm.message')}
-        confirmLabel={t('export.resetConfirm.confirm')}
-        cancelLabel={t('export.resetConfirm.cancel')}
-        onConfirm={handleReset}
-        onCancel={() => setResetModalOpen(false)}
-      />
+      <div className="mt-4 pt-4 border-t border-surface-200 dark:border-surface-800">
+        {isResetConfirmOpen ? (
+          <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl p-4">
+            <p className="font-medium text-brand-600 dark:text-brand-400 mb-3">
+              Are you sure? This will delete all songs and your review history.
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleReset}
+                className="px-4 py-2 bg-brand-500 text-white rounded-lg font-medium hover:bg-brand-600 transition-colors flex-1"
+              >
+                Yes, Delete All
+              </button>
+              <button 
+                onClick={() => setIsResetConfirmOpen(false)}
+                className="px-4 py-2 bg-surface-200 dark:bg-surface-800 rounded-lg font-medium hover:bg-surface-300 dark:hover:bg-surface-700 transition-colors flex-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsResetConfirmOpen(true)}
+            className="flex items-center justify-center gap-2 w-full p-4 rounded-xl text-brand-600 dark:text-brand-400 bg-brand-500/5 hover:bg-brand-500/10 transition-colors font-medium border border-brand-500/10"
+          >
+            <Trash2 size={18} />
+            Reset All Data
+          </button>
+        )}
+      </div>
     </div>
-  );
-}
-
-function ActionButton({
-  onClick,
-  icon: Icon,
-  label,
-  destructive = false,
-}: {
-  onClick: () => void;
-  icon: typeof Download;
-  label: string;
-  destructive?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-        destructive
-          ? 'bg-dislike/10 text-dislike hover:bg-dislike/20'
-          : 'bg-surface-800 text-surface-200 hover:bg-surface-700 border border-surface-700'
-      }`}
-    >
-      <Icon size={16} />
-      {label}
-    </button>
   );
 }

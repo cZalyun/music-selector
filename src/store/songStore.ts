@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Song } from '@/types';
 import { idbStorage } from './idbStorage';
+import { Song } from '../types';
 
 interface SongState {
   songs: Song[];
@@ -21,6 +21,6 @@ export const useSongStore = create<SongState>()(
     {
       name: 'music-selector-songs',
       storage: createJSONStorage(() => idbStorage),
-    },
-  ),
+    }
+  )
 );

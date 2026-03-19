@@ -1,142 +1,127 @@
 import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Music, Heart, ThumbsDown, SkipForward } from 'lucide-react';
-import type { Song, Selection } from '@/types';
+import { useSongStore } from '../../store/songStore';
+import { useSelectionStore } from '../../store/selectionStore';
+import { motion } from 'framer-motion';
 
-interface StatsDashboardProps {
-  songs: Song[];
-  selections: Record<number, Selection>;
-}
-
-export function StatsDashboard({ songs, selections }: StatsDashboardProps) {
-  const { t } = useTranslation();
+export default function StatsDashboard() {
+  const { songs } = useSongStore();
+  const { selections } = useSelectionStore();
 
   const stats = useMemo(() => {
-    const selectionValues = Object.values(selections);
-    const liked = selectionValues.filter((s) => s.status === 'liked');
-    const disliked = selectionValues.filter((s) => s.status === 'disliked');
-    const skipped = selectionValues.filter((s) => s.status === 'skipped');
-    const reviewed = selectionValues.length;
-    const total = songs.length;
-    const percent = total > 0 ? Math.round((reviewed / total) * 100) : 0;
+    let liked = 0, disliked = 0, skipped = 0;
+    const artists: Record<string, number> = {};
+    const albums: Record<string, number> = {};
 
-    // Top 5 liked artists
-    const artistCounts = new Map<string, number>();
-    for (const sel of liked) {
-      const song = songs.find((s) => s.index === sel.songIndex);
-      if (song) {
-        artistCounts.set(song.primaryArtist, (artistCounts.get(song.primaryArtist) ?? 0) + 1);
+    Object.entries(selections).forEach(([indexStr, sel]) => {
+      const idx = parseInt(indexStr, 10);
+      const song = songs[idx];
+      
+      if (sel.status === 'liked') {
+        liked++;
+        if (song) {
+          artists[song.primaryArtist] = (artists[song.primaryArtist] || 0) + 1;
+          if (song.album) {
+            albums[song.album] = (albums[song.album] || 0) + 1;
+          }
+        }
+      } else if (sel.status === 'disliked') {
+        disliked++;
+      } else if (sel.status === 'skipped') {
+        skipped++;
       }
-    }
-    const topArtists = Array.from(artistCounts.entries())
+    });
+
+    const topArtists = Object.entries(artists)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
-
-    // Top 5 liked albums
-    const albumCounts = new Map<string, number>();
-    for (const sel of liked) {
-      const song = songs.find((s) => s.index === sel.songIndex);
-      if (song && song.album) {
-        albumCounts.set(song.album, (albumCounts.get(song.album) ?? 0) + 1);
-      }
-    }
-    const topAlbums = Array.from(albumCounts.entries())
+      
+    const topAlbums = Object.entries(albums)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
     return {
-      total,
-      liked: liked.length,
-      disliked: disliked.length,
-      skipped: skipped.length,
-      reviewed,
-      percent,
+      liked, disliked, skipped,
+      totalReviewed: liked + disliked + skipped,
+      totalSongs: songs.length,
       topArtists,
-      topAlbums,
+      topAlbums
     };
   }, [songs, selections]);
 
-  const maxArtistCount = stats.topArtists[0]?.[1] ?? 1;
-  const maxAlbumCount = stats.topAlbums[0]?.[1] ?? 1;
+  if (stats.totalSongs === 0) return null;
+
+  const percentComplete = stats.totalSongs > 0 ? Math.round((stats.totalReviewed / stats.totalSongs) * 100) : 0;
+  
+  // Percentages for the distribution bar
+  const likedPct = stats.totalReviewed > 0 ? (stats.liked / stats.totalReviewed) * 100 : 0;
+  const dislikedPct = stats.totalReviewed > 0 ? (stats.disliked / stats.totalReviewed) * 100 : 0;
+  const skippedPct = stats.totalReviewed > 0 ? (stats.skipped / stats.totalReviewed) * 100 : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard icon={Music} label={t('stats.cards.total')} value={stats.total} color="text-accent-400" />
-        <StatCard icon={Heart} label={t('stats.cards.liked')} value={stats.liked} color="text-like" />
-        <StatCard icon={ThumbsDown} label={t('stats.cards.disliked')} value={stats.disliked} color="text-dislike" />
-        <StatCard icon={SkipForward} label={t('stats.cards.skipped')} value={stats.skipped} color="text-skip" />
+    <div className="flex flex-col gap-6 w-full mx-auto max-w-lg p-4">
+      {/* Top Level Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-surface-100 dark:bg-surface-900 rounded-xl p-4 border border-surface-200 dark:border-surface-800">
+          <div className="text-surface-500 text-xs font-medium mb-1 uppercase tracking-wider">Reviewed</div>
+          <div className="text-2xl font-bold text-brand-500">{stats.totalReviewed}</div>
+          <div className="text-xs text-surface-400 mt-1">out of {stats.totalSongs}</div>
+        </div>
+        <div className="bg-surface-100 dark:bg-surface-900 rounded-xl p-4 border border-surface-200 dark:border-surface-800">
+          <div className="text-surface-500 text-xs font-medium mb-1 uppercase tracking-wider">Liked</div>
+          <div className="text-2xl font-bold text-accent-500">{stats.liked}</div>
+          <div className="text-xs text-surface-400 mt-1">{stats.totalReviewed > 0 ? Math.round((stats.liked / stats.totalReviewed) * 100) : 0}% of reviewed</div>
+        </div>
       </div>
 
-      {/* Completion */}
-      <div className="bg-surface-800 rounded-2xl p-4 border border-surface-700">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-surface-300">{t('stats.completion')}</h3>
-          <span className="text-sm font-bold text-surface-100">{stats.percent}%</span>
+      {/* Progress & Distribution */}
+      <div className="bg-surface-100 dark:bg-surface-900 rounded-xl p-5 border border-surface-200 dark:border-surface-800">
+        <div className="flex justify-between items-end mb-2">
+          <h3 className="font-bold">Completion</h3>
+          <span className="text-xl font-bold text-brand-500">{percentComplete}%</span>
         </div>
-        <div className="h-2.5 bg-surface-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-accent-500 rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${stats.percent}%` }}
+        <div className="h-3 bg-surface-200 dark:bg-surface-800 rounded-full overflow-hidden mb-6">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${percentComplete}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="h-full bg-brand-500"
           />
         </div>
-        <p className="text-xs text-surface-500 mt-1.5">
-          {stats.reviewed} / {stats.total}
-        </p>
-      </div>
 
-      {/* Distribution */}
-      {stats.reviewed > 0 && (
-        <div className="bg-surface-800 rounded-2xl p-4 border border-surface-700">
-          <h3 className="text-sm font-medium text-surface-300 mb-3">{t('stats.distribution')}</h3>
-          <div className="h-4 rounded-full overflow-hidden flex">
-            {stats.liked > 0 && (
-              <div
-                className="bg-like h-full transition-all duration-500"
-                style={{ width: `${(stats.liked / stats.reviewed) * 100}%` }}
-                title={`Liked: ${Math.round((stats.liked / stats.reviewed) * 100)}%`}
-              />
-            )}
-            {stats.disliked > 0 && (
-              <div
-                className="bg-dislike h-full transition-all duration-500"
-                style={{ width: `${(stats.disliked / stats.reviewed) * 100}%` }}
-                title={`Disliked: ${Math.round((stats.disliked / stats.reviewed) * 100)}%`}
-              />
-            )}
-            {stats.skipped > 0 && (
-              <div
-                className="bg-skip h-full transition-all duration-500"
-                style={{ width: `${(stats.skipped / stats.reviewed) * 100}%` }}
-                title={`Skipped: ${Math.round((stats.skipped / stats.reviewed) * 100)}%`}
-              />
-            )}
-          </div>
-          <div className="flex justify-between mt-2 text-[10px]">
-            <span className="text-like">Liked {Math.round((stats.liked / stats.reviewed) * 100)}%</span>
-            <span className="text-dislike">Disliked {Math.round((stats.disliked / stats.reviewed) * 100)}%</span>
-            <span className="text-skip">Skipped {Math.round((stats.skipped / stats.reviewed) * 100)}%</span>
-          </div>
+        <h3 className="font-bold mb-3">Distribution</h3>
+        <div className="flex h-6 rounded-full overflow-hidden bg-surface-200 dark:bg-surface-800 mb-2">
+          <motion.div initial={{ width: 0 }} animate={{ width: `${likedPct}%` }} className="bg-accent-500 h-full transition-all" />
+          <motion.div initial={{ width: 0 }} animate={{ width: `${dislikedPct}%` }} className="bg-brand-500 h-full transition-all" />
+          <motion.div initial={{ width: 0 }} animate={{ width: `${skippedPct}%` }} className="bg-amber-500 h-full transition-all" />
         </div>
-      )}
+        <div className="flex justify-between text-xs font-medium px-1">
+          <span className="text-accent-500">Like ({stats.liked})</span>
+          <span className="text-amber-500">Skip ({stats.skipped})</span>
+          <span className="text-brand-500">Dislike ({stats.disliked})</span>
+        </div>
+      </div>
 
       {/* Top Artists */}
       {stats.topArtists.length > 0 && (
-        <div className="bg-surface-800 rounded-2xl p-4 border border-surface-700">
-          <h3 className="text-sm font-medium text-surface-300 mb-3">{t('stats.topArtists')}</h3>
-          <div className="space-y-2">
-            {stats.topArtists.map(([artist, count]) => (
-              <div key={artist}>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-surface-200 truncate flex-1 mr-2">{artist}</span>
-                  <span className="text-surface-400 tabular-nums">{count}</span>
-                </div>
-                <div className="h-1.5 bg-surface-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-like rounded-full transition-all duration-500"
-                    style={{ width: `${(count / maxArtistCount) * 100}%` }}
-                  />
+        <div className="bg-surface-100 dark:bg-surface-900 rounded-xl p-5 border border-surface-200 dark:border-surface-800">
+          <h3 className="font-bold mb-4">Top Liked Artists</h3>
+          <div className="flex flex-col gap-3">
+            {stats.topArtists.map(([artist, count], i) => (
+              <div key={artist} className="flex items-center gap-3">
+                <div className="w-5 text-center text-sm font-bold text-surface-400">{i + 1}</div>
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-sm font-medium truncate pr-2">{artist}</span>
+                    <span className="text-sm text-surface-500">{count}</span>
+                  </div>
+                  <div className="h-1.5 bg-surface-200 dark:bg-surface-800 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(count / stats.topArtists[0][1]) * 100}%` }}
+                      transition={{ duration: 0.5, delay: i * 0.1 }}
+                      className="h-full bg-accent-500/80"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -146,46 +131,31 @@ export function StatsDashboard({ songs, selections }: StatsDashboardProps) {
 
       {/* Top Albums */}
       {stats.topAlbums.length > 0 && (
-        <div className="bg-surface-800 rounded-2xl p-4 border border-surface-700">
-          <h3 className="text-sm font-medium text-surface-300 mb-3">{t('stats.topAlbums')}</h3>
-          <div className="space-y-2">
-            {stats.topAlbums.map(([album, count]) => (
-              <div key={album}>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-surface-200 truncate flex-1 mr-2">{album}</span>
-                  <span className="text-surface-400 tabular-nums">{count}</span>
-                </div>
-                <div className="h-1.5 bg-surface-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent-400 rounded-full transition-all duration-500"
-                    style={{ width: `${(count / maxAlbumCount) * 100}%` }}
-                  />
+        <div className="bg-surface-100 dark:bg-surface-900 rounded-xl p-5 border border-surface-200 dark:border-surface-800">
+          <h3 className="font-bold mb-4">Top Liked Albums</h3>
+          <div className="flex flex-col gap-3">
+            {stats.topAlbums.map(([album, count], i) => (
+              <div key={album} className="flex items-center gap-3">
+                <div className="w-5 text-center text-sm font-bold text-surface-400">{i + 1}</div>
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-sm font-medium truncate pr-2">{album}</span>
+                    <span className="text-sm text-surface-500">{count}</span>
+                  </div>
+                  <div className="h-1.5 bg-surface-200 dark:bg-surface-800 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(count / stats.topAlbums[0][1]) * 100}%` }}
+                      transition={{ duration: 0.5, delay: i * 0.1 }}
+                      className="h-full bg-accent-500/80"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-}: {
-  icon: typeof Music;
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <div className="bg-surface-800 rounded-2xl p-4 border border-surface-700">
-      <Icon size={20} className={`${color} mb-2`} />
-      <p className="text-2xl font-bold text-surface-100">{value}</p>
-      <p className="text-xs text-surface-400">{label}</p>
     </div>
   );
 }

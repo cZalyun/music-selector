@@ -1,0 +1,75 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic:
+    - alert [ref=e4]:
+      - img [ref=e6]
+      - paragraph [ref=e8]: Loaded with 6 errors.
+      - button "Dismiss notification" [ref=e9]:
+        - img [ref=e10]
+    - status [ref=e13]:
+      - img [ref=e15]
+      - paragraph [ref=e18]: Sample data loaded successfully!
+      - button "Dismiss notification" [ref=e19]:
+        - img [ref=e20]
+  - main [ref=e23]:
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]: 0 / 1146 reviewed
+        - generic [ref=e30]: 0%
+      - generic [ref=e31]:
+        - article "Island Song (Come Along with Me) (feat. Ashley Eriksson) by Adventure Time" [ref=e32]:
+          - img "Island Song (Come Along with Me) (feat. Ashley Eriksson)" [ref=e34]
+          - generic [ref=e37]: Like
+          - generic [ref=e39]: Nope
+          - generic [ref=e41]: Skip
+          - generic [ref=e42]:
+            - generic [ref=e44]: 1:49
+            - heading "Island Song (Come Along with Me) (feat. Ashley Eriksson)" [level=2] [ref=e45]
+            - paragraph [ref=e46]: Adventure Time
+            - paragraph [ref=e47]: "Adventure Time: Come Along with Me (Original Soundtrack)"
+        - article "Walk Of Life (Remastered 1996) by Dire Straits" [ref=e48]:
+          - img "Walk Of Life (Remastered 1996)" [ref=e50]
+          - generic [ref=e53]: Like
+          - generic [ref=e55]: Nope
+          - generic [ref=e57]: Skip
+          - generic [ref=e58]:
+            - generic [ref=e60]: 4:09
+            - heading "Walk Of Life (Remastered 1996)" [level=2] [ref=e61]
+            - paragraph [ref=e62]: Dire Straits
+            - paragraph [ref=e63]: Brothers In Arms (Remastered 1996)
+      - generic [ref=e64]:
+        - button "Undo last selection" [disabled] [ref=e65]:
+          - img [ref=e66]
+        - button "Dislike" [ref=e69]:
+          - img [ref=e70]
+        - button "Play" [ref=e72]:
+          - img [ref=e73]
+        - button "Like" [ref=e75]:
+          - img [ref=e76]
+        - button "Skip" [ref=e78]:
+          - img [ref=e79]
+  - navigation [ref=e81]:
+    - list [ref=e83]:
+      - listitem [ref=e84]:
+        - link "Upload" [ref=e85] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e86]
+          - generic [ref=e89]: Upload
+      - listitem [ref=e90]:
+        - link "Swipe" [ref=e91] [cursor=pointer]:
+          - /url: "#/swipe"
+          - img [ref=e92]
+          - generic [ref=e95]: Swipe
+      - listitem [ref=e96]:
+        - link "Library" [ref=e97] [cursor=pointer]:
+          - /url: "#/library"
+          - img [ref=e98]
+          - generic [ref=e100]: Library
+      - listitem [ref=e101]:
+        - link "Settings" [ref=e102] [cursor=pointer]:
+          - /url: "#/stats"
+          - img [ref=e103]
+          - generic [ref=e106]: Settings
+```

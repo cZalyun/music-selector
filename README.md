@@ -1,77 +1,73 @@
-# Music Selector
+# React + TypeScript + Vite
 
-A mobile-first Progressive Web App for reviewing, curating, and managing your YouTube Music liked songs library using a Tinder-style swipe interface.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Features
+Currently, two official plugins are available:
 
-- **Swipe Review** — Right to like, left to dislike, up to skip. Keyboard shortcuts: `→` `←` `↑` `Space` `Z`
-- **Music Player** — Embedded YouTube player with seek, volume, loop, auto-continue, shuffle, and lock screen controls
-- **Library** — Search, filter, sort, group your songs. Virtualized list for performance
-- **Stats** — Review progress, top artists/albums charts, export liked songs as CSV
-- **PWA** — Installable, works offline, background updates
-- **Accessibility** — WCAG 2.2 AA: keyboard nav, ARIA labels, focus-visible, skip-to-content, screen reader support
-- **i18n** — Internationalization-ready with `react-i18next`
-- **Cross-platform** — iOS Safari, Android Chrome, macOS, Windows, with safe-area insets and platform-specific optimizations
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Tech Stack
+## React Compiler
 
-- **React 19** + TypeScript
-- **Vite** with PWA plugin (Workbox service worker)
-- **TailwindCSS v4** with custom dark/light theme
-- **Zustand** with IndexedDB persistence (`idb-keyval`)
-- **Framer Motion** for animations
-- **PapaParse** for CSV parsing
-- **@tanstack/react-virtual** for virtualized lists
-- **Vitest** for unit testing
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## Getting Started
+## Expanding the ESLint configuration
 
-```bash
-npm install
-npm run dev
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-## Scripts
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start dev server |
-| `npm run build` | TypeScript check + production build |
-| `npm run preview` | Preview production build |
-| `npm test` | Run tests in watch mode |
-| `npm run test:run` | Run tests once |
-| `npm run lint` | ESLint check |
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-## Project Structure
-
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-src/
-├── components/
-│   ├── layout/        # Layout, BottomNav, ErrorBoundary
-│   ├── swipe/         # CardStack, SwipeCard, SwipeControls
-│   ├── player/        # MiniPlayer (YouTube IFrame)
-│   ├── library/       # SearchBar, FilterChips, SongList, SongRow
-│   ├── stats/         # StatsDashboard, ExportPanel
-│   ├── upload/        # DropZone (CSV import)
-│   └── ui/            # Toast, ConfirmModal, InstallPrompt, SkipToContent
-├── hooks/             # usePWAInstall, useTheme, useBackButton
-├── i18n/              # i18next config + locale files
-├── pages/             # HomePage, SwipePage, LibraryPage, StatsPage
-├── store/             # Zustand stores (IndexedDB-backed)
-├── types/             # TypeScript types
-├── utils/             # csv, playerBridge, search, grouping, thumbnail, imageQueue
-└── __tests__/         # Unit tests
-```
-
-## Platform Support
-
-| Platform | Install | Audio | Gestures | Lock Screen |
-|---|---|---|---|---|
-| iOS Safari | Manual guide | ✅ | ✅ | ✅ iOS 15+ |
-| Android Chrome | Native prompt | ✅ | ✅ + haptics | ✅ |
-| macOS Safari/Chrome | Native prompt | ✅ | ✅ | ✅ |
-| Windows Chrome/Edge | Native prompt | ✅ + volume | Mouse drag | ✅ |
-
-## License
-
-MIT

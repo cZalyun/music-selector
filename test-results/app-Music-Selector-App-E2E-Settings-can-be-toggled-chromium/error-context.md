@@ -1,0 +1,64 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - main [ref=e4]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: 0 / 1146 reviewed
+        - generic [ref=e11]: 0%
+      - generic [ref=e12]:
+        - article "Island Song (Come Along with Me) (feat. Ashley Eriksson) by Adventure Time" [ref=e13]:
+          - img "Island Song (Come Along with Me) (feat. Ashley Eriksson)" [ref=e15]
+          - generic [ref=e18]: Like
+          - generic [ref=e20]: Nope
+          - generic [ref=e22]: Skip
+          - generic [ref=e23]:
+            - generic [ref=e25]: 1:49
+            - heading "Island Song (Come Along with Me) (feat. Ashley Eriksson)" [level=2] [ref=e26]
+            - paragraph [ref=e27]: Adventure Time
+            - paragraph [ref=e28]: "Adventure Time: Come Along with Me (Original Soundtrack)"
+        - article "Walk Of Life (Remastered 1996) by Dire Straits" [ref=e29]:
+          - img "Walk Of Life (Remastered 1996)" [ref=e31]
+          - generic [ref=e34]: Like
+          - generic [ref=e36]: Nope
+          - generic [ref=e38]: Skip
+          - generic [ref=e39]:
+            - generic [ref=e41]: 4:09
+            - heading "Walk Of Life (Remastered 1996)" [level=2] [ref=e42]
+            - paragraph [ref=e43]: Dire Straits
+            - paragraph [ref=e44]: Brothers In Arms (Remastered 1996)
+      - generic [ref=e45]:
+        - button "Undo last selection" [disabled] [ref=e46]:
+          - img [ref=e47]
+        - button "Dislike" [ref=e50]:
+          - img [ref=e51]
+        - button "Play" [ref=e53]:
+          - img [ref=e54]
+        - button "Like" [ref=e56]:
+          - img [ref=e57]
+        - button "Skip" [ref=e59]:
+          - img [ref=e60]
+  - navigation [ref=e62]:
+    - list [ref=e64]:
+      - listitem [ref=e65]:
+        - link "Upload" [ref=e66] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e67]
+          - generic [ref=e70]: Upload
+      - listitem [ref=e71]:
+        - link "Swipe" [ref=e72] [cursor=pointer]:
+          - /url: "#/swipe"
+          - img [ref=e73]
+          - generic [ref=e76]: Swipe
+      - listitem [ref=e77]:
+        - link "Library" [ref=e78] [cursor=pointer]:
+          - /url: "#/library"
+          - img [ref=e79]
+          - generic [ref=e81]: Library
+      - listitem [ref=e82]:
+        - link "Settings" [ref=e83] [cursor=pointer]:
+          - /url: "#/stats"
+          - img [ref=e84]
+          - generic [ref=e87]: Settings
+```

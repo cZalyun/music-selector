@@ -1,27 +1,27 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: false,
-  retries: 0,
-  workers: 1,
-  reporter: 'list',
-  timeout: 30000,
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5175', // Ensure this matches our dev server port
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
   },
   projects: [
     {
       name: 'chromium',
-      use: { browserName: 'chromium' },
+      use: { ...devices['Desktop Chrome'] },
     },
+    // We can just use chromium for now to speed up e2e
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-    timeout: 10000,
+    url: 'http://localhost:5175',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
   },
 });
