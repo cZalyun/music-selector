@@ -309,10 +309,45 @@ export default function MiniPlayer() {
   useEffect(() => {
     console.log('[MiniPlayer] isPlaying effect triggered:', { isPlaying, currentVideoId });
     if (!playerRef.current) return;
+    
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    
     try {
       if (isPlaying && typeof playerRef.current.playVideo === 'function') {
-        console.log('[MiniPlayer] Calling playVideo()');
-        playerRef.current.playVideo();
+        console.log('[MiniPlayer] Calling playVideo()', { isMobile });
+        
+        if (isMobile) {
+          // Mobile autoplay workaround: rapid toggle to trigger gesture detection
+          console.log('[MiniPlayer] Mobile autoplay workaround: rapid toggle sequence');
+          
+          // Start with pause to ensure clean state
+          playerRef.current.pauseVideo();
+          
+          // Toggle play/pause rapidly to simulate user gesture
+          setTimeout(() => {
+            if (playerRef.current) {
+              playerRef.current.playVideo();
+              console.log('[MiniPlayer] Mobile: first play()');
+            }
+          }, 100);
+          
+          setTimeout(() => {
+            if (playerRef.current) {
+              playerRef.current.pauseVideo();
+              console.log('[MiniPlayer] Mobile: pause()');
+            }
+          }, 400); // 300ms after first play
+          
+          setTimeout(() => {
+            if (playerRef.current) {
+              playerRef.current.playVideo();
+              console.log('[MiniPlayer] Mobile: final play()');
+            }
+          }, 700); // 300ms after pause
+        } else {
+          // Desktop: normal play
+          playerRef.current.playVideo();
+        }
       } else if (!isPlaying && typeof playerRef.current.pauseVideo === 'function') {
         console.log('[MiniPlayer] Calling pauseVideo()');
         playerRef.current.pauseVideo();
