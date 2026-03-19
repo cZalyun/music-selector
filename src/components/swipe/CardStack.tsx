@@ -8,7 +8,6 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useToastStore } from '../../store/toastStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import type { SelectionStatus } from '../../types';
-import { loadVideoFromGesture } from '../../utils/playerBridge';
 
 export default function CardStack() {
   const songs = useSongStore((s) => s.songs);
@@ -47,7 +46,6 @@ export default function CardStack() {
       // Load next song
       const next = unreviewed[1];
       if (next) {
-        if (autoplay) loadVideoFromGesture(next.videoId);
         setCurrentSong(next.videoId, next.index, autoplay);
       }
     },
@@ -74,7 +72,6 @@ export default function CardStack() {
     if (currentVideoId === currentSong.videoId) {
       setPlaying(!isPlaying);
     } else {
-      loadVideoFromGesture(currentSong.videoId);
       setCurrentSong(currentSong.videoId, currentSong.index);
     }
   }, [currentSong, currentVideoId, isPlaying, setCurrentSong, setPlaying]);

@@ -4,7 +4,6 @@ import { Play, Heart, ThumbsDown, SkipForward } from 'lucide-react';
 import type { SongWithSelection } from '../../types';
 import { usePlayerStore } from '../../store/playerStore';
 import { getThumbnailUrl, getFallbackThumbnail } from '../../utils/thumbnail';
-import { loadVideoFromGesture } from '../../utils/playerBridge';
 
 interface SongRowProps {
   song: SongWithSelection;
@@ -22,7 +21,6 @@ export default function SongRow({ song, index }: SongRowProps) {
   const isActive = currentSongIndex === song.index;
 
   const handlePlay = () => {
-    loadVideoFromGesture(song.videoId);
     setCurrentSong(song.videoId, song.index);
   };
 

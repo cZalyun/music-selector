@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { usePlayerStore } from '../../store/playerStore';
 import { useSongStore } from '../../store/songStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { registerPlayer, unregisterPlayer, consumeGestureLoad } from '../../utils/playerBridge';
+import { registerPlayer, unregisterPlayer } from '../../utils/playerBridge';
 import { getThumbnailUrl } from '../../utils/thumbnail';
 
 declare global {
@@ -190,15 +190,10 @@ export default function MiniPlayer() {
     if (activeVideoRef.current !== videoId) return;
 
     if (playerRef.current) {
-      // On mobile the gesture handler already called loadVideoById directly.
-      // Consuming the flag prevents a redundant second load.
-      const { consumed } = consumeGestureLoad(videoId);
-      if (!consumed) {
-        if (shouldPlay) {
-          playerRef.current.loadVideoById(videoId);
-        } else {
-          playerRef.current.cueVideoById(videoId);
-        }
+      if (shouldPlay) {
+        playerRef.current.loadVideoById(videoId);
+      } else {
+        playerRef.current.cueVideoById(videoId);
       }
       return;
     }
@@ -245,12 +240,12 @@ export default function MiniPlayer() {
             return;
           }
           if (loadingRef.current) {
-            // Only check for blocked autoplay on the very first load.
-            // Once the player is activated, PAUSED during loading = old video
-            // stopping, NOT new video being blocked — so don't interfere.
-            if (!playerActivatedRef.current && event.data === window.YT.PlayerState.PAUSED) {
+            // Detect blocked autoplay on every load (first song or song change).
+            // PAUSED during loading = either old video stopping OR new video blocked.
+            // Wait 600ms: if still not playing/buffering then autoplay was blocked.
+            if (event.data === window.YT.PlayerState.PAUSED) {
               setTimeout(() => {
-                if (!playerRef.current) return;
+                if (!playerRef.current || !loadingRef.current) return;
                 try {
                   const s = playerRef.current.getPlayerState();
                   if (s !== window.YT.PlayerState.PLAYING && s !== window.YT.PlayerState.BUFFERING) {
