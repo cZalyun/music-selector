@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { usePlayerStore } from '../../store/playerStore';
 import { useSongStore } from '../../store/songStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { registerPlayer, unregisterPlayer, consumeGestureLoad } from '../../utils/playerBridge';
+import { registerPlayer, unregisterPlayer, consumeGestureLoad, isGestureLoadPending } from '../../utils/playerBridge';
 import { getThumbnailUrl } from '../../utils/thumbnail';
 
 declare global {
@@ -181,7 +181,8 @@ export default function MiniPlayer() {
   const initPlayer = useCallback(async (videoId: string, shouldPlay: boolean) => {
     activeVideoRef.current = videoId;
     loadingRef.current = true;
-    setPlaying(false); // Not confirmed playing until YT fires PLAYING
+    // Don't setPlaying(false) here - keep UI optimistic like desktop.
+    // If blocked, the timeout below will fix it.
     setProgress(0);
     setDuration(0);
 
@@ -198,6 +199,18 @@ export default function MiniPlayer() {
         console.log('[MiniPlayer] Gesture consumed, checking player state');
         // If the player is already playing/buffering from the gesture, sync state
         // Otherwise, leave loadingRef=true and wait for onStateChange
+        // Set a safety timeout in case the gesture load failed silently (stuck in UNSTARTED)
+        setTimeout(() => {
+          if (loadingRef.current && playerRef.current) {
+            const s = playerRef.current.getPlayerState();
+            if (s !== window.YT.PlayerState.PLAYING && s !== window.YT.PlayerState.BUFFERING) {
+              console.log('[MiniPlayer] Gesture load seems stuck, resetting UI');
+              loadingRef.current = false;
+              setPlaying(false);
+            }
+          }
+        }, 2000);
+
         try {
           const state = playerRef.current.getPlayerState();
           if (state === window.YT.PlayerState.PLAYING || state === window.YT.PlayerState.BUFFERING) {
@@ -254,6 +267,11 @@ export default function MiniPlayer() {
           }
           if (event.data === window.YT.PlayerState.CUED) {
             loadingRef.current = false;
+            // If we ended up CUED but expected to play (autoplay blocked or failed),
+            // update UI to show Pause button so user knows to click.
+            if (usePlayerStore.getState().isPlaying) {
+              setPlaying(false);
+            }
             try {
               const d = playerRef.current?.getDuration();
               if (d && d > 0) setDuration(d);
@@ -263,8 +281,11 @@ export default function MiniPlayer() {
           if (loadingRef.current) {
             // Detect blocked autoplay on every load (first song or song change).
             // PAUSED during loading = either old video stopping OR new video blocked.
-            // Wait 600ms: if still not playing/buffering then autoplay was blocked.
+            // Wait 1000ms (standard): if still not playing/buffering then autoplay was blocked.
             if (event.data === window.YT.PlayerState.PAUSED) {
+              // Ignore if a gesture load is pending (race condition protection)
+              if (isGestureLoadPending()) return;
+
               setTimeout(() => {
                 if (!playerRef.current || !loadingRef.current) return;
                 try {
@@ -274,13 +295,18 @@ export default function MiniPlayer() {
                     setPlaying(false);
                   }
                 } catch { /* */ }
-              }, 17);
+              }, 1000);
             }
             return;
           }
           if (event.data === window.YT.PlayerState.ENDED) {
             handleSongEndRef.current();
           } else if (event.data === window.YT.PlayerState.PAUSED) {
+            // Ignore if a gesture load is pending (old video stopping before new one inits)
+            if (isGestureLoadPending()) {
+              console.log('[MiniPlayer] Ignoring PAUSED event due to pending gesture load');
+              return;
+            }
             console.log('[MiniPlayer] YT is PAUSED, calling setPlaying(false)');
             setPlaying(false);
             if (navigator.mediaSession) {
@@ -304,7 +330,8 @@ export default function MiniPlayer() {
 
   useEffect(() => {
     // Skip while a new video is loading — onStateChange drives isPlaying during that phase
-    if (!playerRef.current || loadingRef.current) return;
+    // Also skip if a gesture load is pending (we know it's coming)
+    if (!playerRef.current || loadingRef.current || isGestureLoadPending()) return;
     try {
       if (isPlaying && typeof playerRef.current.playVideo === 'function') {
         playerRef.current.playVideo();

@@ -21,18 +21,12 @@ export function unregisterPlayer() {
  * Returns true if the player was available and the call was made.
  */
 export function loadVideoFromGesture(videoId: string, shouldPlay: boolean = true): boolean {
-  const isMobile = window.matchMedia('(max-width: 639px)').matches;
-  console.log('[playerBridge] loadVideoFromGesture called:', { videoId, shouldPlay, isMobile });
-  
-  // On desktop, don't use gesture bridge - let normal flow handle it
-  if (!isMobile) {
-    console.log('[playerBridge] Desktop detected, skipping gesture bridge');
-    return false;
-  }
+  console.log('[playerBridge] loadVideoFromGesture called:', { videoId, shouldPlay });
   
   if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
     try {
       ytPlayer.loadVideoById(videoId);
+      ytPlayer.playVideo(); // Force play to ensure audio context is active
       gestureVideoId = videoId;
       gestureShouldPlay = shouldPlay;
       console.log('[playerBridge] Gesture stored:', { gestureVideoId, gestureShouldPlay });
@@ -43,6 +37,10 @@ export function loadVideoFromGesture(videoId: string, shouldPlay: boolean = true
   }
   console.log('[playerBridge] No player available');
   return false;
+}
+
+export function isGestureLoadPending(): boolean {
+  return gestureVideoId !== null;
 }
 
 /**
