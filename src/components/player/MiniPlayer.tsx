@@ -60,6 +60,7 @@ export default function MiniPlayer() {
   const [seeking, setSeeking] = useState(false);
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const handleSongEndRef = useRef<() => void>(() => {});
+  const mobilePlayInProgressRef = useRef(false); // Prevent multiple mobile play attempts
 
   const location = useLocation();
   const isSwipePage = location.pathname === '/swipe';
@@ -306,6 +307,85 @@ export default function MiniPlayer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Handle page visibility changes (background/foreground) for iOS Safari
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      console.log('[MiniPlayer] Visibility changed:', { 
+        hidden: document.hidden, 
+        isPlaying, 
+        currentVideoId,
+        playerExists: !!playerRef.current 
+      });
+      
+      if (!document.hidden && playerRef.current && currentVideoId && isPlaying) {
+        // Page came back to foreground - check if player is still playing
+        try {
+          const state = playerRef.current.getPlayerState();
+          console.log('[MiniPlayer] Player state on visibility change:', state);
+          
+          // If player is not playing but should be, try to restart
+          if (state !== window.YT.PlayerState.PLAYING && state !== window.YT.PlayerState.BUFFERING) {
+            console.log('[MiniPlayer] Restarting playback on visibility change');
+            playerRef.current.playVideo();
+            
+            // Update Media Session API to reconnect
+            if (navigator.mediaSession) {
+              updateMediaSession();
+              navigator.mediaSession.playbackState = 'playing';
+            }
+          }
+        } catch (e) {
+          console.error('[MiniPlayer] Error checking player state:', e);
+        }
+      }
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // Pageshow event fires when page is restored from back cache
+      if (event.persisted) {
+        console.log('[MiniPlayer] Page restored from back cache');
+        // Give YouTube player time to initialize
+        setTimeout(() => {
+          if (playerRef.current && currentVideoId && isPlaying) {
+            console.log('[MiniPlayer] Restarting playback after page restore');
+            playerRef.current.playVideo();
+          }
+        }, 1000);
+      }
+    };
+
+    // Handle iOS Safari specific background/foreground events
+    const handleFocus = () => {
+      console.log('[MiniPlayer] Window gained focus (iOS Safari)');
+      if (playerRef.current && currentVideoId && isPlaying) {
+        setTimeout(() => {
+          try {
+            const player = playerRef.current;
+            if (player) {
+              const state = player.getPlayerState();
+              if (state !== window.YT.PlayerState.PLAYING && state !== window.YT.PlayerState.BUFFERING) {
+                console.log('[MiniPlayer] Restarting playback on focus');
+                player.playVideo();
+              }
+            }
+          } catch (e) {
+            console.error('[MiniPlayer] Error checking player state on focus:', e);
+          }
+        }, 500);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentVideoId, isPlaying, updateMediaSession]);
+
   useEffect(() => {
     console.log('[MiniPlayer] isPlaying effect triggered:', { isPlaying, currentVideoId });
     if (!playerRef.current) return;
@@ -317,33 +397,50 @@ export default function MiniPlayer() {
         console.log('[MiniPlayer] Calling playVideo()', { isMobile });
         
         if (isMobile) {
-          // Mobile autoplay workaround: rapid toggle to trigger gesture detection
-          console.log('[MiniPlayer] Mobile autoplay workaround: rapid toggle sequence');
+          // Prevent multiple simultaneous play attempts
+          if (mobilePlayInProgressRef.current) {
+            console.log('[MiniPlayer] Mobile: play already in progress, skipping');
+            return;
+          }
           
-          // Start with pause to ensure clean state
-          playerRef.current.pauseVideo();
+          mobilePlayInProgressRef.current = true;
+          console.log('[MiniPlayer] Mobile: attempting normal play first');
           
-          // Toggle play/pause rapidly to simulate user gesture
+          // Try normal play first
+          playerRef.current.playVideo();
+          
+          // Check if play was blocked after a delay
           setTimeout(() => {
             if (playerRef.current) {
-              playerRef.current.playVideo();
-              console.log('[MiniPlayer] Mobile: first play()');
+              try {
+                const state = playerRef.current.getPlayerState();
+                console.log('[MiniPlayer] Mobile: player state after 500ms:', state);
+                
+                // If still not playing (blocked), try the workaround
+                if (state !== window.YT.PlayerState.PLAYING && state !== window.YT.PlayerState.BUFFERING) {
+                  console.log('[MiniPlayer] Mobile: play was blocked, trying workaround');
+                  
+                  // Quick pause to reset state
+                  playerRef.current.pauseVideo();
+                  
+                  // Try play again with gesture simulation
+                  setTimeout(() => {
+                    if (playerRef.current) {
+                      playerRef.current.playVideo();
+                      console.log('[MiniPlayer] Mobile: workaround play attempt');
+                    }
+                  }, 200);
+                }
+              } catch (e) {
+                console.log('[MiniPlayer] Mobile: could not check state, assuming play worked');
+              }
             }
-          }, 100);
+          }, 500);
           
+          // Reset flag after all attempts complete
           setTimeout(() => {
-            if (playerRef.current) {
-              playerRef.current.pauseVideo();
-              console.log('[MiniPlayer] Mobile: pause()');
-            }
-          }, 400); // 300ms after first play
-          
-          setTimeout(() => {
-            if (playerRef.current) {
-              playerRef.current.playVideo();
-              console.log('[MiniPlayer] Mobile: final play()');
-            }
-          }, 700); // 300ms after pause
+            mobilePlayInProgressRef.current = false;
+          }, 1000);
         } else {
           // Desktop: normal play
           playerRef.current.playVideo();
