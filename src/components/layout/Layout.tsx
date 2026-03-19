@@ -33,7 +33,15 @@ export function Layout({ children }: LayoutProps) {
       <OfflineBanner />
       <ToastContainer />
 
-      <main id="main-content" className={`flex-1 ${hasPlayer ? 'pb-40' : 'pb-16'}`}>
+      <main
+        id="main-content"
+        className="flex-1"
+        style={{
+          paddingBottom: hasPlayer
+            ? 'calc(10rem + env(safe-area-inset-bottom, 0px))'
+            : 'calc(4rem + env(safe-area-inset-bottom, 0px))',
+        }}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}

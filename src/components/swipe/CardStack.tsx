@@ -43,22 +43,18 @@ export function CardStack() {
   const total = songs.length;
   const percent = total > 0 ? Math.round((reviewed / total) * 100) : 0;
 
-  // Load first song into player on mount (only once per queue head)
-  const initialLoadDone = useRef(false);
+  // Keep MiniPlayer in sync with the front swipe card
   const autoplayRef = useRef(autoplay);
   autoplayRef.current = autoplay;
 
   useEffect(() => {
-    // Reset when the top card changes (e.g. after a swipe)
-    initialLoadDone.current = false;
-  }, [currentSong?.index]);
-
-  useEffect(() => {
-    if (currentSong && !currentVideoId && !initialLoadDone.current) {
-      initialLoadDone.current = true;
-      setCurrentSong(currentSong.videoId, currentSong.index, autoplayRef.current);
-    }
-  }, [currentSong, currentVideoId, setCurrentSong]);
+    if (!currentSong) return;
+    // If player is already showing this song, nothing to do
+    if (currentVideoId === currentSong.videoId) return;
+    // Sync MiniPlayer to the front card (autoplay setting controls play/cue)
+    loadVideoFromGesture(currentSong.videoId, autoplayRef.current);
+    setCurrentSong(currentSong.videoId, currentSong.index, autoplayRef.current);
+  }, [currentSong?.videoId, currentSong?.index, currentVideoId, setCurrentSong]);
 
   const triggerHaptic = useCallback((pattern: number[]) => {
     if (navigator.vibrate) navigator.vibrate(pattern);
