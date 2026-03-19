@@ -8,7 +8,6 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useToastStore } from '../../store/toastStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import type { SelectionStatus } from '../../types';
-import { unmutePlayer } from '../../utils/playerBridge';
 
 export default function CardStack() {
   const songs = useSongStore((s) => s.songs);
@@ -47,8 +46,6 @@ export default function CardStack() {
       // Load next song
       const next = unreviewed[1];
       if (next) {
-        // Unmute within user gesture so iOS allows audio
-        if (autoplay) unmutePlayer();
         setCurrentSong(next.videoId, next.index, autoplay);
       }
     },
@@ -73,12 +70,8 @@ export default function CardStack() {
   const handlePlay = useCallback(() => {
     if (!currentSong) return;
     if (currentVideoId === currentSong.videoId) {
-      // Unmute on play (not pause) within user gesture so iOS allows audio
-      if (!isPlaying) unmutePlayer();
       setPlaying(!isPlaying);
     } else {
-      // Unmute within user gesture so iOS allows audio
-      unmutePlayer();
       setCurrentSong(currentSong.videoId, currentSong.index);
     }
   }, [currentSong, currentVideoId, isPlaying, setCurrentSong, setPlaying]);

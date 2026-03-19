@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { usePlayerStore } from '../../store/playerStore';
 import { useSongStore } from '../../store/songStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { registerPlayer, unregisterPlayer, unmutePlayer } from '../../utils/playerBridge';
+import { registerPlayer, unregisterPlayer } from '../../utils/playerBridge';
 import { getThumbnailUrl } from '../../utils/thumbnail';
 
 declare global {
@@ -60,7 +60,6 @@ export default function MiniPlayer() {
   const [seeking, setSeeking] = useState(false);
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const handleSongEndRef = useRef<() => void>(() => {});
-  const playerMutedRef = useRef(false); // True if player was started muted (mobile)
 
   const location = useLocation();
   const isSwipePage = location.pathname === '/swipe';
@@ -204,10 +203,6 @@ export default function MiniPlayer() {
       return;
     }
 
-    const isMobileInit = window.matchMedia('(max-width: 639px)').matches;
-    // On mobile, mute for initial autoplay; player unlocks on first user gesture
-    if (isMobileInit && shouldPlay) playerMutedRef.current = true;
-
     playerRef.current = new window.YT.Player('yt-player', {
       height: '0',
       width: '0',
@@ -218,7 +213,6 @@ export default function MiniPlayer() {
         disablekb: 1,
         modestbranding: 1,
         playsinline: 1,
-        ...(isMobileInit && shouldPlay ? { mute: 1 } : {}),
       },
       events: {
         onReady: () => {
@@ -292,27 +286,12 @@ export default function MiniPlayer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
 
-  // On mobile, force volume to max (volume slider is hidden)
-  useEffect(() => {
-    const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    if (isMobile && volume !== 100) {
-      setVolume(100);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  
   useEffect(() => {
     console.log('[MiniPlayer] isPlaying effect triggered:', { isPlaying, currentVideoId });
     if (!playerRef.current) return;
-    
-    const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    
     try {
       if (isPlaying && typeof playerRef.current.playVideo === 'function') {
-        console.log('[MiniPlayer] Calling playVideo()', { isMobile });
-        
-        // Simple play for both mobile and desktop
+        console.log('[MiniPlayer] Calling playVideo()');
         playerRef.current.playVideo();
       } else if (!isPlaying && typeof playerRef.current.pauseVideo === 'function') {
         console.log('[MiniPlayer] Calling pauseVideo()');
@@ -450,24 +429,8 @@ export default function MiniPlayer() {
                   </>
                 )}
                 <button
-                  onClick={() => {
-                    if (playerRef.current) {
-                      try {
-                        if (volume === 0) {
-                          // User gesture - safe to unmute
-                          (playerRef.current as any).unMute();
-                          setVolume(70);
-                        } else {
-                          setVolume(0);
-                          (playerRef.current as any).mute();
-                        }
-                      } catch (e) {
-                        console.error('[MiniPlayer] Error toggling mute:', e);
-                      }
-                    }
-                  }}
-                  className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
-                  title={volume === 0 ? "Tap to unmute" : "Tap to mute"}
+                  onClick={() => setVolume(volume === 0 ? 70 : 0)}
+                  className="hidden sm:block p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
                 >
                   {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
                 </button>
@@ -482,14 +445,7 @@ export default function MiniPlayer() {
                   className="hidden sm:block w-14 accent-accent-500 touch-none"
                 />
                 <button
-                  onClick={() => {
-                    // On mobile first interaction: unmute the player (player is "unlocked" by this gesture)
-                    if (playerMutedRef.current) {
-                      playerMutedRef.current = false;
-                      unmutePlayer();
-                    }
-                    setPlaying(!isPlaying);
-                  }}
+                  onClick={() => setPlaying(!isPlaying)}
                   className="p-2 bg-accent-600 hover:bg-accent-500 rounded-full text-white transition-colors"
                 >
                   {isPlaying ? <Pause size={16} /> : <Play size={16} />}

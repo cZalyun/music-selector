@@ -17,25 +17,6 @@ export function unregisterPlayer() {
 }
 
 /**
- * Call from a direct user gesture (click/swipe) to unmute the player.
- * Safe to call even if player doesn't exist yet - it's a no-op in that case.
- * Returns true if unmute was performed.
- */
-export function unmutePlayer(): boolean {
-  if (ytPlayer) {
-    try {
-      (ytPlayer as any).unMute();
-      ytPlayer.setVolume(100);
-      console.log('[playerBridge] Player unmuted via user gesture');
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  return false;
-}
-
-/**
  * Call from a direct user gesture (click / swipe) to load a video.
  * Returns true if the player was available and the call was made.
  */

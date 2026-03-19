@@ -4,7 +4,6 @@ import { Play, Heart, ThumbsDown, SkipForward } from 'lucide-react';
 import type { SongWithSelection } from '../../types';
 import { usePlayerStore } from '../../store/playerStore';
 import { getThumbnailUrl, getFallbackThumbnail } from '../../utils/thumbnail';
-import { unmutePlayer } from '../../utils/playerBridge';
 
 interface SongRowProps {
   song: SongWithSelection;
@@ -22,9 +21,6 @@ export default function SongRow({ song, index }: SongRowProps) {
   const isActive = currentSongIndex === song.index;
 
   const handlePlay = () => {
-    console.log('[SongRow] handlePlay clicked:', { videoId: song.videoId, index: song.index });
-    // Unmute within user gesture so iOS allows audio
-    unmutePlayer();
     setCurrentSong(song.videoId, song.index);
   };
 
