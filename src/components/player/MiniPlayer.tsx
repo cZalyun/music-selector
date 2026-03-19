@@ -245,20 +245,24 @@ export default function MiniPlayer() {
             return;
           }
           if (loadingRef.current) {
-            // Only check for blocked autoplay on the very first load.
-            // Once the player is activated, PAUSED during loading = old video
-            // stopping, NOT new video being blocked — so don't interfere.
-            if (!playerActivatedRef.current && event.data === window.YT.PlayerState.PAUSED) {
-              setTimeout(() => {
-                if (!playerRef.current) return;
-                try {
-                  const s = playerRef.current.getPlayerState();
-                  if (s !== window.YT.PlayerState.PLAYING && s !== window.YT.PlayerState.BUFFERING) {
-                    loadingRef.current = false;
-                    setPlaying(false);
-                  }
-                } catch { /* */ }
-              }, 600);
+            if (event.data === window.YT.PlayerState.PAUSED) {
+              if (playerActivatedRef.current) {
+                // Player already unlocked by a prior user gesture.
+                // iOS pauses after loadVideoById — just resume, it will work.
+                try { playerRef.current?.playVideo(); } catch { /* */ }
+              } else {
+                // First-ever load: detect if autoplay was blocked
+                setTimeout(() => {
+                  if (!playerRef.current) return;
+                  try {
+                    const s = playerRef.current.getPlayerState();
+                    if (s !== window.YT.PlayerState.PLAYING && s !== window.YT.PlayerState.BUFFERING) {
+                      loadingRef.current = false;
+                      setPlaying(false);
+                    }
+                  } catch { /* */ }
+                }, 600);
+              }
             }
             return;
           }
