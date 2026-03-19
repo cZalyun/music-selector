@@ -1,295 +1,307 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Music, Disc3, Database, HelpCircle, Mail, X, ChevronRight, Download, Copy, Check } from 'lucide-react';
-import DropZone from '../components/upload/DropZone';
-import { useSongStore } from '../store/songStore';
-import { useSelectionStore } from '../store/selectionStore';
-import { useToastStore } from '../store/toastStore';
-import { parseCSVString } from '../utils/csv';
-import { usePWAInstall } from '../hooks/usePWAInstall';
-import { BOOKMARKLET } from '../utils/bookmarklet';
+import { useTranslation } from 'react-i18next';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Music,
+  Play,
+  HelpCircle,
+  X,
+  Copy,
+  Check,
+  Download,
+  Mail,
+  ArrowRight,
+  Bookmark,
+  ListMusic,
+  Settings,
+  Lightbulb,
+  Keyboard,
+  Smartphone,
+  Undo2,
+} from 'lucide-react';
+import { DropZone } from '@/components/upload/DropZone';
+import { useSongStore } from '@/store/songStore';
+import { useSelectionStore } from '@/store/selectionStore';
+import { useToastStore } from '@/store/toastStore';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { parseCSVString } from '@/utils/csv';
+import { formatPercent } from '@/utils/format';
+import { BOOKMARKLET } from '@/utils/bookmarklet';
+import { SAMPLE_DATA_PATH } from '@/constants';
 
 export default function HomePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { songs, fileName, setSongs } = useSongStore();
+  const songs = useSongStore((s) => s.songs);
+  const fileName = useSongStore((s) => s.fileName);
+  const setSongs = useSongStore((s) => s.setSongs);
   const reviewed = useSelectionStore((s) => s.getReviewedCount());
   const addToast = useToastStore((s) => s.addToast);
-  const [loadingSample, setLoadingSample] = useState(false);
-  const [showHowTo, setShowHowTo] = useState(false);
-  const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
   const { canInstall, isIOS, install } = usePWAInstall();
 
-  const hasData = songs.length > 0;
+  const [showHowTo, setShowHowTo] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
 
-  const handleLoadSample = async () => {
+  const percent = formatPercent(reviewed, songs.length);
+
+  const handleLoadSample = useCallback(async () => {
     setLoadingSample(true);
     try {
-      const base = import.meta.env.BASE_URL;
-      const res = await fetch(`${base}SAMPLE_DATA.csv`);
-      if (!res.ok) throw new Error('Failed to fetch sample data');
-      const text = await res.text();
-      const { songs: parsed, errors } = parseCSVString(text);
-      if (errors.length > 0) {
-        addToast(errors[0], 'error');
-      }
+      const response = await fetch(SAMPLE_DATA_PATH);
+      const text = await response.text();
+      const { songs: parsed } = parseCSVString(text);
       if (parsed.length > 0) {
         setSongs(parsed, 'SAMPLE_DATA.csv');
-        addToast(`Loaded ${parsed.length} sample songs`, 'success');
-        navigate('/swipe');
+        addToast(t('toast.sampleLoaded', { count: parsed.length }), 'success');
       }
     } catch {
-      addToast('Failed to load sample data', 'error');
-    } finally {
-      setLoadingSample(false);
+      addToast(t('errors.genericError'), 'error');
     }
-  };
+    setLoadingSample(false);
+  }, [setSongs, addToast, t]);
+
+  const handleCopyBookmarklet = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(BOOKMARKLET);
+      setCopied(true);
+      addToast(t('toast.copied'), 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      addToast(t('errors.genericError'), 'error');
+    }
+  }, [addToast, t]);
 
   return (
-    <div className="px-4 py-8 max-w-lg mx-auto w-full">
+    <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-8"
-      >
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent-600 to-accent-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-accent-600/20">
-          <Music size={28} className="text-white" />
+      <div className="text-center space-y-2">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-accent-500/10 rounded-2xl mb-2">
+          <Music size={32} className="text-accent-400" />
         </div>
-        <h1 className="text-2xl font-bold text-surface-50">Music Selector</h1>
-        <p className="text-sm text-surface-400 mt-1">
-          Discover and curate your music library
-        </p>
-        {canInstall && !isIOS && (
-          <button
-            onClick={install}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-accent-600/20"
-          >
-            <Download size={16} />
-            Install App
-          </button>
-        )}
-        {canInstall && isIOS && (
-          <div className="mt-4 px-4 py-3 bg-surface-800/80 border border-surface-700/50 rounded-xl text-xs text-surface-300 text-center space-y-1">
-            <p className="font-medium text-surface-100">Add to Home Screen</p>
-            <p>Open in <span className="text-accent-400 font-medium">Safari</span>, tap the <span className="text-accent-400">Share</span> button, then <span className="text-accent-400">&quot;Add to Home Screen&quot;</span></p>
-          </div>
-        )}
-      </motion.div>
+        <h1 className="text-2xl font-bold text-surface-100">{t('home.title')}</h1>
+        <p className="text-sm text-surface-400">{t('home.subtitle')}</p>
+      </div>
 
-      {/* Existing session card */}
-      {hasData && (
+      {/* Session resume card */}
+      {songs.length > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6 p-4 rounded-2xl bg-surface-800/60 border border-surface-700/40"
+          className="bg-surface-800 rounded-2xl p-4 border border-accent-500/20"
         >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-accent-600/20 flex items-center justify-center">
-              <Disc3 size={20} className="text-accent-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-surface-200">Current Session</p>
-              <p className="text-xs text-surface-500 truncate">{fileName}</p>
-            </div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-surface-100">{t('home.resume.title')}</h2>
+            <Play size={16} className="text-accent-400" />
           </div>
-          <div className="flex items-center gap-3 text-xs text-surface-400 mb-3">
-            <span>{songs.length} songs</span>
-            <span>·</span>
-            <span>{reviewed} reviewed</span>
-            <span>·</span>
-            <span>{Math.round((reviewed / songs.length) * 100)}% complete</span>
-          </div>
+          {fileName && (
+            <p className="text-xs text-surface-400">{t('home.resume.file', { name: fileName })}</p>
+          )}
+          <p className="text-xs text-surface-400">{t('home.resume.songs', { total: songs.length })}</p>
+          <p className="text-xs text-surface-400 mb-3">
+            {t('home.resume.reviewed', { count: reviewed, percent })}
+          </p>
           <button
             onClick={() => navigate('/swipe')}
-            className="w-full py-2.5 bg-accent-600 hover:bg-accent-500 text-white font-medium rounded-xl transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-xl hover:bg-accent-600 transition-colors"
           >
-            Continue Reviewing
+            {t('home.resume.continue')}
+            <ArrowRight size={16} />
           </button>
         </motion.div>
       )}
 
-      {/* Upload zone — only when no session loaded */}
-      {!hasData && (
-        <>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <DropZone onSuccess={() => navigate('/swipe')} />
-          </motion.div>
+      {/* DropZone */}
+      <DropZone />
 
-          {/* Load sample data */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="mt-4"
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex-1 h-px bg-surface-700/50" />
-              <span className="text-[10px] text-surface-500 uppercase tracking-wider">or</span>
-              <div className="flex-1 h-px bg-surface-700/50" />
-            </div>
-            <button
-              onClick={handleLoadSample}
-              disabled={loadingSample}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-surface-800/60 border border-surface-700/40 hover:bg-surface-700/60 text-surface-300 font-medium rounded-xl transition-colors text-sm disabled:opacity-50"
-            >
-              <Database size={16} />
-              {loadingSample ? 'Loading...' : 'Load Sample Music List'}
-            </button>
-            <p className="text-[10px] text-surface-600 text-center mt-2">
-              Try with a pre-loaded list of 1,148 songs
-            </p>
-          </motion.div>
-        </>
-      )}
-      {/* Bottom links */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="mt-8 flex items-center justify-center gap-4"
+      {/* Load sample data */}
+      <button
+        onClick={handleLoadSample}
+        disabled={loadingSample}
+        className="w-full flex items-center justify-center gap-2 py-3 bg-surface-800 text-surface-200 text-sm font-medium rounded-xl border border-surface-700 hover:bg-surface-700 transition-colors disabled:opacity-50"
       >
+        {loadingSample ? (
+          <div className="w-4 h-4 border-2 border-accent-400 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <ListMusic size={16} />
+        )}
+        {t('home.dropzone.loadSample', { count: 1148 })}
+      </button>
+
+      {/* Actions row */}
+      <div className="flex gap-3">
         <button
           onClick={() => setShowHowTo(true)}
-          className="flex items-center gap-1.5 text-xs text-surface-400 hover:text-surface-200 transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-surface-800 text-surface-300 text-sm rounded-xl border border-surface-700 hover:bg-surface-700 transition-colors"
         >
-          <HelpCircle size={14} />
-          How To Use?
+          <HelpCircle size={16} />
+          {t('home.howToUse.title')}
         </button>
-        <span className="text-surface-700">·</span>
+
+        {canInstall && (
+          <button
+            onClick={isIOS ? () => setShowHowTo(true) : install}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-accent-500/10 text-accent-400 text-sm rounded-xl border border-accent-500/20 hover:bg-accent-500/20 transition-colors"
+          >
+            <Download size={16} />
+            {t('home.install.button')}
+          </button>
+        )}
+      </div>
+
+      {/* Feedback */}
+      <div className="text-center">
         <a
-          href="mailto:contact@peterbenceczaun.me?subject=Music%20Selector%20Feedback"
-          className="flex items-center gap-1.5 text-xs text-surface-400 hover:text-surface-200 transition-colors"
+          href="mailto:feedback@peterbenceczaun.me?subject=Music%20Selector%20Feedback"
+          className="inline-flex items-center gap-1.5 text-xs text-surface-500 hover:text-surface-300 transition-colors"
+          rel="noopener noreferrer"
         >
-          <Mail size={14} />
-          Feedback
+          <Mail size={12} />
+          {t('home.feedback')}
         </a>
-      </motion.div>
+      </div>
 
       {/* How To Use Modal */}
       <AnimatePresence>
         {showHowTo && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowHowTo(false)}
-          >
-            <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg max-h-[80vh] overflow-y-auto bg-surface-900 border border-surface-700/50 rounded-2xl p-5"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-surface-100">How To Use</h2>
-                <button
-                  onClick={() => setShowHowTo(false)}
-                  className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="space-y-5 text-sm text-surface-300">
-                <section>
-                  <h3 className="text-surface-100 font-semibold mb-1.5 flex items-center gap-1.5">
-                    <ChevronRight size={14} className="text-accent-400" />
-                    Getting Your Music Data
-                  </h3>
-                  <ol className="list-decimal list-inside space-y-1 text-surface-400 text-xs leading-relaxed">
-                    <li>Go to <span className="text-accent-400">music.youtube.com</span> and sign in</li>
-                    <li>Navigate to <span className="text-surface-200">Library → Liked Songs</span></li>
-                    <li>Create a new bookmark and paste this bookmarklet code as the URL:</li>
-                  </ol>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(BOOKMARKLET);
-                        setBookmarkletCopied(true);
-                        setTimeout(() => setBookmarkletCopied(false), 2000);
-                      } catch {
-                        addToast('Failed to copy', 'error');
-                      }
-                    }}
-                    className="mt-2 w-full flex items-center gap-2 px-3 py-2 text-xs font-mono bg-surface-800 border border-surface-700/50 rounded-lg hover:bg-surface-700/60 transition-colors text-left"
-                  >
-                    <span className="flex-1 truncate text-accent-400">{"javascript:(async()=>{…} bookmarklet"}</span>
-                    {bookmarkletCopied ? (
-                      <Check size={14} className="shrink-0 text-emerald-400" />
-                    ) : (
-                      <Copy size={14} className="shrink-0 text-surface-400" />
-                    )}
-                  </button>
-                  {bookmarkletCopied && (
-                    <p className="text-[10px] text-emerald-400 mt-1">Copied to clipboard!</p>
-                  )}
-                  <ol start={4} className="list-decimal list-inside space-y-1 text-surface-400 text-xs leading-relaxed mt-2">
-                    <li>Click the bookmarklet — it scrolls through all songs and downloads a CSV</li>
-                    <li>Upload that CSV here in the app</li>
-                  </ol>
-                </section>
-
-                <section>
-                  <h3 className="text-surface-100 font-semibold mb-1.5 flex items-center gap-1.5">
-                    <ChevronRight size={14} className="text-accent-400" />
-                    Swipe to Review
-                  </h3>
-                  <ul className="space-y-1 text-surface-400 text-xs leading-relaxed">
-                    <li><span className="text-emerald-400 font-medium">Swipe right</span> or tap the heart to <strong>like</strong> a song</li>
-                    <li><span className="text-rose-400 font-medium">Swipe left</span> or tap the thumbs down to <strong>dislike</strong></li>
-                    <li><span className="text-amber-400 font-medium">Swipe up</span> or tap the skip arrow to <strong>skip</strong> for now</li>
-                    <li>Use the <strong>play button</strong> to preview the song via YouTube</li>
-                    <li>Use the <strong>undo button</strong> to go back to the previous song</li>
-                  </ul>
-                </section>
-
-                <section>
-                  <h3 className="text-surface-100 font-semibold mb-1.5 flex items-center gap-1.5">
-                    <ChevronRight size={14} className="text-accent-400" />
-                    Library
-                  </h3>
-                  <p className="text-surface-400 text-xs leading-relaxed">
-                    Browse all your songs with search, filter by status (liked, disliked, unreviewed),
-                    sort by title, artist, or duration, and group by artist, album, duration, or status.
-                    Tap any song to play it.
-                  </p>
-                </section>
-
-                <section>
-                  <h3 className="text-surface-100 font-semibold mb-1.5 flex items-center gap-1.5">
-                    <ChevronRight size={14} className="text-accent-400" />
-                    Settings & Export
-                  </h3>
-                  <p className="text-surface-400 text-xs leading-relaxed">
-                    Toggle autoplay on/off, view review statistics, and export your liked songs as CSV
-                    or back up all your data as JSON.
-                  </p>
-                </section>
-
-                <section>
-                  <h3 className="text-surface-100 font-semibold mb-1.5 flex items-center gap-1.5">
-                    <ChevronRight size={14} className="text-accent-400" />
-                    Tips
-                  </h3>
-                  <ul className="space-y-1 text-surface-400 text-xs leading-relaxed">
-                    <li>Your progress is <strong>saved automatically</strong> in your browser</li>
-                    <li>Install the app as a PWA for the best mobile experience</li>
-                    <li>You can try the app with sample data before uploading your own</li>
-                  </ul>
-                </section>
-              </div>
-            </motion.div>
-          </motion.div>
+          <HowToModal
+            onClose={() => setShowHowTo(false)}
+            onCopyBookmarklet={handleCopyBookmarklet}
+            copied={copied}
+            isIOS={isIOS}
+          />
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function HowToModal({
+  onClose,
+  onCopyBookmarklet,
+  copied,
+  isIOS,
+}: {
+  onClose: () => void;
+  onCopyBookmarklet: () => void;
+  copied: boolean;
+  isIOS: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative bg-surface-800 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-surface-700"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+      >
+        <div className="sticky top-0 bg-surface-800 p-4 border-b border-surface-700 flex items-center justify-between z-10">
+          <h2 className="text-lg font-bold text-surface-100">{t('home.howToUse.title')}</h2>
+          <button
+            onClick={onClose}
+            className="p-1 text-surface-400 hover:text-surface-200 transition-colors"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-6">
+          {/* Step 1: Bookmarklet */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Bookmark size={16} className="text-accent-400" />
+              <h3 className="text-sm font-bold text-surface-100">
+                {t('home.howToUse.bookmarklet.title')}
+              </h3>
+            </div>
+            <ol className="space-y-2 text-sm text-surface-300 list-decimal list-inside">
+              <li>{t('home.howToUse.bookmarklet.step1')}</li>
+              <li>{t('home.howToUse.bookmarklet.step2')}</li>
+              <li>{t('home.howToUse.bookmarklet.step3')}</li>
+              <li>{t('home.howToUse.bookmarklet.step4')}</li>
+              <li>{t('home.howToUse.bookmarklet.step5')}</li>
+            </ol>
+            <button
+              onClick={onCopyBookmarklet}
+              className="mt-3 flex items-center gap-2 px-3 py-2 bg-surface-700 text-surface-200 text-sm rounded-lg hover:bg-surface-600 transition-colors"
+            >
+              {copied ? <Check size={14} className="text-like" /> : <Copy size={14} />}
+              {copied ? t('home.howToUse.bookmarklet.copied') : t('home.howToUse.bookmarklet.copyButton')}
+            </button>
+          </section>
+
+          {/* Step 2: Swipe */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <ArrowRight size={16} className="text-like" />
+              <h3 className="text-sm font-bold text-surface-100">
+                {t('home.howToUse.swipe.title')}
+              </h3>
+            </div>
+            <ul className="space-y-1.5 text-sm text-surface-300">
+              <li>👉 {t('home.howToUse.swipe.right')}</li>
+              <li>👈 {t('home.howToUse.swipe.left')}</li>
+              <li>👆 {t('home.howToUse.swipe.up')}</li>
+            </ul>
+          </section>
+
+          {/* Step 3: Library */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Settings size={16} className="text-accent-400" />
+              <h3 className="text-sm font-bold text-surface-100">
+                {t('home.howToUse.library.title')}
+              </h3>
+            </div>
+            <p className="text-sm text-surface-300">
+              {t('home.howToUse.library.description')}
+            </p>
+          </section>
+
+          {/* Tips */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Lightbulb size={16} className="text-skip" />
+              <h3 className="text-sm font-bold text-surface-100">
+                {t('home.howToUse.tips.title')}
+              </h3>
+            </div>
+            <ul className="space-y-2 text-sm text-surface-300">
+              <li className="flex items-start gap-2">
+                <Undo2 size={14} className="shrink-0 mt-0.5 text-surface-500" />
+                {t('home.howToUse.tips.undo')}
+              </li>
+              <li className="flex items-start gap-2">
+                <Keyboard size={14} className="shrink-0 mt-0.5 text-surface-500" />
+                {t('home.howToUse.tips.keyboard')}
+              </li>
+              <li className="flex items-start gap-2">
+                <Smartphone size={14} className="shrink-0 mt-0.5 text-surface-500" />
+                {t('home.howToUse.tips.install')}
+              </li>
+            </ul>
+          </section>
+
+          {/* iOS install guide */}
+          {isIOS && (
+            <section className="bg-accent-500/10 rounded-xl p-3 border border-accent-500/20">
+              <p className="text-sm text-accent-400 font-medium">
+                {t('home.install.iosGuide')}
+              </p>
+            </section>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -1,160 +1,222 @@
-import { useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import SwipeCard from './SwipeCard';
-import SwipeControls from './SwipeControls';
-import { useSongStore } from '../../store/songStore';
-import { useSelectionStore } from '../../store/selectionStore';
-import { usePlayerStore } from '../../store/playerStore';
-import { useToastStore } from '../../store/toastStore';
-import { useSettingsStore } from '../../store/settingsStore';
-import type { SelectionStatus } from '../../types';
-import { loadVideoFromGesture } from '../../utils/playerBridge';
+import { useTranslation } from 'react-i18next';
+import { CheckCircle, Music } from 'lucide-react';
+import { SwipeCard } from './SwipeCard';
+import { SwipeControls } from './SwipeControls';
+import { useSongStore } from '@/store/songStore';
+import { useSelectionStore } from '@/store/selectionStore';
+import { usePlayerStore } from '@/store/playerStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useToastStore } from '@/store/toastStore';
+import { loadVideoFromGesture } from '@/utils/playerBridge';
+import { HAPTIC_LIKE, HAPTIC_DISLIKE, HAPTIC_SKIP } from '@/constants';
+import type { SelectionStatus } from '@/types';
 
-export default function CardStack() {
+export function CardStack() {
+  const { t } = useTranslation();
   const songs = useSongStore((s) => s.songs);
-  const { selections, addSelection, undoLast } = useSelectionStore();
+  const selections = useSelectionStore((s) => s.selections);
+  const addSelection = useSelectionStore((s) => s.addSelection);
+  const undoLast = useSelectionStore((s) => s.undoLast);
+  const history = useSelectionStore((s) => s.history);
   const setCurrentSong = usePlayerStore((s) => s.setCurrentSong);
-  const addToast = useToastStore((s) => s.addToast);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const currentVideoId = usePlayerStore((s) => s.currentVideoId);
   const autoplay = useSettingsStore((s) => s.autoplay);
   const hideExplicit = useSettingsStore((s) => s.hideExplicit);
+  const addToast = useToastStore((s) => s.addToast);
 
-  const unreviewed = useMemo(
-    () => songs.filter((s) => !selections[s.index] && (!hideExplicit || !s.isExplicit)),
-    [songs, selections, hideExplicit]
-  );
+  const [exitDirection, setExitDirection] = useState<'left' | 'right' | 'up' | null>(null);
 
-  const currentSong = unreviewed[0] ?? null;
-  const nextSong = unreviewed[1] ?? null;
-  const totalReviewed = Object.keys(selections).length;
+  const queue = useMemo(() => {
+    return songs.filter((song) => {
+      if (selections[song.index]) return false;
+      if (hideExplicit && song.isExplicit) return false;
+      return true;
+    });
+  }, [songs, selections, hideExplicit]);
 
-  const handleSwipe = useCallback(
-    (direction: 'left' | 'right' | 'up') => {
-      if (!currentSong) return;
-      const statusMap: Record<string, SelectionStatus> = {
-        right: 'liked',
-        left: 'disliked',
-        up: 'skipped',
-      };
-      const status = statusMap[direction];
+  const currentSong = queue[0];
+  const nextSong = queue[1];
+  const reviewed = Object.keys(selections).length;
+  const total = songs.length;
+  const percent = total > 0 ? Math.round((reviewed / total) * 100) : 0;
+
+  // Load first song into player on mount
+  useEffect(() => {
+    if (currentSong && !currentVideoId) {
+      setCurrentSong(currentSong.videoId, currentSong.index, false);
+    }
+  }, [currentSong, currentVideoId, setCurrentSong]);
+
+  const triggerHaptic = useCallback((pattern: number[]) => {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  }, []);
+
+  const handleSwipe = useCallback((direction: 'left' | 'right' | 'up') => {
+    if (!currentSong) return;
+
+    let status: SelectionStatus;
+    if (direction === 'right') {
+      status = 'liked';
+      triggerHaptic(HAPTIC_LIKE);
+      addToast(t('toast.liked'), 'success');
+    } else if (direction === 'left') {
+      status = 'disliked';
+      triggerHaptic(HAPTIC_DISLIKE);
+    } else {
+      status = 'skipped';
+      triggerHaptic(HAPTIC_SKIP);
+    }
+
+    setExitDirection(direction);
+
+    // Small delay for exit animation
+    setTimeout(() => {
       addSelection(currentSong.index, status);
-
-      if (navigator.vibrate) navigator.vibrate(30);
-
-      if (status === 'liked') {
-        addToast(`Liked "${currentSong.title}"`, 'success');
-      }
+      setExitDirection(null);
 
       // Load next song
-      const next = unreviewed[1];
+      const next = queue[1];
       if (next) {
-        if (autoplay) loadVideoFromGesture(next.videoId);
+        loadVideoFromGesture(next.videoId, autoplay);
         setCurrentSong(next.videoId, next.index, autoplay);
       }
-    },
-    [currentSong, unreviewed, addSelection, setCurrentSong, addToast, autoplay]
-  );
+    }, 150);
+  }, [currentSong, queue, addSelection, setCurrentSong, autoplay, addToast, t, triggerHaptic]);
 
   const handleUndo = useCallback(() => {
     const undone = undoLast();
     if (undone) {
       const song = songs.find((s) => s.index === undone.songIndex);
       if (song) {
-        setCurrentSong(song.videoId, song.index);
-        addToast('Undid last selection', 'info');
+        loadVideoFromGesture(song.videoId, autoplay);
+        setCurrentSong(song.videoId, song.index, autoplay);
       }
     }
-  }, [undoLast, songs, setCurrentSong, addToast]);
+  }, [undoLast, songs, autoplay, setCurrentSong]);
 
-  const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const currentVideoId = usePlayerStore((s) => s.currentVideoId);
-  const setPlaying = usePlayerStore((s) => s.setPlaying);
-
-  const handlePlay = useCallback(() => {
+  const handlePlayPause = useCallback(() => {
     if (!currentSong) return;
-    if (currentVideoId === currentSong.videoId) {
-      setPlaying(!isPlaying);
+    const { isPlaying: playing, setPlaying } = usePlayerStore.getState();
+    if (playing) {
+      setPlaying(false);
     } else {
-      loadVideoFromGesture(currentSong.videoId);
-      setCurrentSong(currentSong.videoId, currentSong.index);
+      loadVideoFromGesture(currentSong.videoId, true);
+      setPlaying(true);
     }
-  }, [currentSong, currentVideoId, isPlaying, setCurrentSong, setPlaying]);
+  }, [currentSong]);
 
-  const isCurrentSongPlaying = currentVideoId === currentSong?.videoId && isPlaying;
+  // Keyboard controls
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key) {
+        case 'ArrowRight':
+          e.preventDefault();
+          handleSwipe('right');
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handleSwipe('left');
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          handleSwipe('up');
+          break;
+        case ' ':
+          e.preventDefault();
+          handlePlayPause();
+          break;
+        case 'z':
+        case 'Z':
+          e.preventDefault();
+          handleUndo();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleSwipe, handlePlayPause, handleUndo]);
 
   if (songs.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center px-6 py-20">
-        <div className="w-20 h-20 rounded-3xl bg-surface-800 flex items-center justify-center mb-4">
-          <span className="text-4xl">🎵</span>
-        </div>
-        <h2 className="text-xl font-bold text-surface-200 mb-2">No songs loaded</h2>
-        <p className="text-surface-500 text-sm">Upload a CSV file first to start reviewing</p>
+      <div className="flex flex-col items-center justify-center h-full text-center p-8">
+        <Music size={48} className="text-surface-500 mb-4" />
+        <h2 className="text-xl font-bold text-surface-200 mb-2">{t('swipe.noSongs.title')}</h2>
+        <p className="text-surface-400">{t('swipe.noSongs.subtitle')}</p>
       </div>
     );
   }
 
-  if (unreviewed.length === 0) {
+  if (queue.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center px-6 py-20">
-        <div className="w-20 h-20 rounded-3xl bg-surface-800 flex items-center justify-center mb-4">
-          <span className="text-4xl">🎉</span>
-        </div>
-        <h2 className="text-xl font-bold text-surface-200 mb-2">All done!</h2>
-        <p className="text-surface-500 text-sm mb-2">
-          You&apos;ve reviewed all {songs.length} songs
-        </p>
-        <p className="text-surface-500 text-xs">
-          Check the Library tab to see your selections, or undo to review again.
-        </p>
-        <button
-          onClick={handleUndo}
-          className="mt-4 px-4 py-2 bg-surface-800 hover:bg-surface-700 text-surface-200 text-sm rounded-xl transition-colors"
-        >
-          Undo Last
-        </button>
+      <div className="flex flex-col items-center justify-center h-full text-center p-8">
+        <CheckCircle size={48} className="text-like mb-4" />
+        <h2 className="text-xl font-bold text-surface-200 mb-2">{t('swipe.allDone.title')}</h2>
+        <p className="text-surface-400">{t('swipe.allDone.subtitle')}</p>
       </div>
     );
   }
-
-  const progress = songs.length > 0 ? (totalReviewed / songs.length) * 100 : 0;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Progress */}
-      <div className="px-4 pt-2 pb-3">
+      {/* Progress bar */}
+      <div className="px-4 pt-3 pb-2">
         <div className="flex items-center justify-between text-xs text-surface-400 mb-1.5">
-          <span>{totalReviewed} of {songs.length} reviewed</span>
-          <span>{Math.round(progress)}%</span>
+          <span>{t('swipe.progress', { reviewed, total, percent })}</span>
+          <span>{t('swipe.remaining', { count: queue.length })}</span>
         </div>
-        <div className="h-1 bg-surface-800 rounded-full overflow-hidden">
+        <div
+          className="h-1.5 bg-surface-700 rounded-full overflow-hidden"
+          role="progressbar"
+          aria-valuenow={reviewed}
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-label={t('a11y.progressBar', { reviewed, total })}
+        >
           <div
-            className="h-full bg-gradient-to-r from-accent-600 to-accent-400 rounded-full transition-all duration-300"
-            style={{ width: `${progress}%` }}
+            className="h-full bg-accent-500 rounded-full transition-all duration-300"
+            style={{ width: `${percent}%` }}
           />
         </div>
       </div>
 
-      {/* Card area */}
-      <div className="flex-1 relative mx-4 mb-1" style={{ minHeight: '280px' }}>
-        <AnimatePresence mode="popLayout">
+      {/* Card stack */}
+      <div className="flex-1 relative mx-4 my-2 min-h-0">
+        <AnimatePresence>
           {nextSong && (
-            <SwipeCard key={nextSong.index} song={nextSong} onSwipe={() => {}} isTop={false} />
+            <SwipeCard
+              key={nextSong.index}
+              song={nextSong}
+              onSwipe={() => {}}
+              isTop={false}
+            />
           )}
           {currentSong && (
-            <SwipeCard key={currentSong.index} song={currentSong} onSwipe={handleSwipe} isTop={true} />
+            <SwipeCard
+              key={currentSong.index}
+              song={currentSong}
+              onSwipe={handleSwipe}
+              isTop={true}
+              exitDirection={exitDirection}
+            />
           )}
         </AnimatePresence>
       </div>
 
       {/* Controls */}
       <SwipeControls
+        onLike={() => handleSwipe('right')}
         onDislike={() => handleSwipe('left')}
         onSkip={() => handleSwipe('up')}
-        onLike={() => handleSwipe('right')}
+        onPlayPause={handlePlayPause}
         onUndo={handleUndo}
-        onPlay={handlePlay}
-        canUndo={totalReviewed > 0}
-        isPlaying={isCurrentSongPlaying}
+        isPlaying={isPlaying}
+        canUndo={history.length > 0}
       />
     </div>
   );

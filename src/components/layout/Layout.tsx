@@ -1,36 +1,60 @@
-import { Outlet } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
-import BottomNav from './BottomNav';
-import MiniPlayer from '../player/MiniPlayer';
-import ToastContainer from '../ui/Toast';
-import InstallPrompt from '../ui/InstallPrompt';
-import OfflineBanner from '../OfflineBanner';
+import { AnimatePresence, motion } from 'framer-motion';
+import { BottomNav } from './BottomNav';
+import { ErrorBoundary } from './ErrorBoundary';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { ToastContainer } from '@/components/ui/Toast';
+import { InstallPrompt } from '@/components/ui/InstallPrompt';
+import { SkipToContent } from '@/components/ui/SkipToContent';
+import { MiniPlayer } from '@/components/player/MiniPlayer';
+import { usePlayerStore } from '@/store/playerStore';
+import { PAGE_TRANSITION_MS } from '@/constants';
 
-export default function Layout() {
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[50dvh]">
+      <div className="w-8 h-8 border-2 border-accent-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+export function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const hasPlayer = usePlayerStore((s) => s.currentVideoId !== null);
 
   return (
-    <div className="flex flex-col min-h-full bg-surface-950 text-surface-100">
+    <>
+      <SkipToContent />
       <OfflineBanner />
       <ToastContainer />
-      <InstallPrompt />
-      <main className={`flex-1 overflow-x-hidden`}>
+
+      <main id="main-content" className={`flex-1 ${hasPlayer ? 'pb-40' : 'pb-16'}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="min-h-full"
+            transition={{ duration: PAGE_TRANSITION_MS / 1000 }}
+            className="h-full"
           >
-            <Outlet />
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                {children}
+              </Suspense>
+            </ErrorBoundary>
           </motion.div>
         </AnimatePresence>
       </main>
+
       <MiniPlayer />
+      <InstallPrompt />
       <BottomNav />
-    </div>
+    </>
   );
 }

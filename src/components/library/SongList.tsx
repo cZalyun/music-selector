@@ -1,56 +1,155 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useCallback, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import SongRow from './SongRow';
-import type { SongGroup } from '../../utils/grouping';
+import { useTranslation } from 'react-i18next';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { SongRow } from './SongRow';
+import type { Song, SongGroup } from '@/types';
+import type { FilteredSong } from '@/utils/search';
 
 interface SongListProps {
-  groups: SongGroup[];
+  songs: FilteredSong[];
+  groups: SongGroup[] | null;
+  activeSongIndex: number | null;
+  searchQuery: string;
+  onPlay: (song: Song) => void;
 }
 
-export default function SongList({ groups }: SongListProps) {
-  const isSingleGroup = groups.length === 1 && groups[0].label === 'All Songs';
+export function SongList({ songs, groups, activeSongIndex, searchQuery, onPlay }: SongListProps) {
+  const { t } = useTranslation();
 
-  if (isSingleGroup) {
-    const songs = groups[0].songs;
-    if (songs.length === 0) return <EmptyState />;
+  if (songs.length === 0) {
     return (
-      <div className="space-y-1">
-        {songs.map((song, i) => (
-          <SongRow key={song.index} song={song} index={i} />
+      <div className="flex items-center justify-center py-16 text-surface-500 text-sm">
+        {t('library.noResults')}
+      </div>
+    );
+  }
+
+  if (groups) {
+    return (
+      <div className="space-y-2">
+        {groups.map((group) => (
+          <CollapsibleGroup
+            key={group.label}
+            group={group}
+            activeSongIndex={activeSongIndex}
+            searchQuery={searchQuery}
+            onPlay={onPlay}
+          />
         ))}
       </div>
     );
   }
 
-  if (groups.length === 0) return <EmptyState />;
+  return (
+    <VirtualizedList
+      songs={songs}
+      activeSongIndex={activeSongIndex}
+      searchQuery={searchQuery}
+      onPlay={onPlay}
+    />
+  );
+}
+
+function VirtualizedList({
+  songs,
+  activeSongIndex,
+  searchQuery,
+  onPlay,
+}: {
+  songs: FilteredSong[];
+  activeSongIndex: number | null;
+  searchQuery: string;
+  onPlay: (song: Song) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: songs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 56,
+    overscan: 10,
+  });
 
   return (
-    <div className="space-y-2">
-      {groups.map((group) => (
-        <CollapsibleGroup key={group.label} group={group} />
-      ))}
+    <div
+      ref={parentRef}
+      className="flex-1 overflow-y-auto"
+      style={{ maxHeight: 'calc(100dvh - 20rem)' }}
+    >
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const song = songs[virtualRow.index];
+          if (!song) return null;
+          return (
+            <div
+              key={song.index}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <SongRow
+                song={song}
+                selectionStatus={song.selectionStatus}
+                isActive={activeSongIndex === song.index}
+                searchQuery={searchQuery}
+                onPlay={onPlay}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function CollapsibleGroup({ group }: { group: SongGroup }) {
-  const [isOpen, setIsOpen] = useState(true);
+function CollapsibleGroup({
+  group,
+  activeSongIndex,
+  searchQuery,
+  onPlay,
+}: {
+  group: SongGroup;
+  activeSongIndex: number | null;
+  searchQuery: string;
+  onPlay: (song: Song) => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  const toggle = useCallback(() => setOpen((prev) => !prev), []);
 
   return (
-    <div className="rounded-xl bg-surface-900/40 border border-surface-800/50 overflow-hidden">
+    <div className="bg-surface-800/50 rounded-xl overflow-hidden">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-surface-800/40 transition-colors"
+        onClick={toggle}
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-surface-800 transition-colors"
+        aria-expanded={open}
       >
-        {isOpen ? <ChevronDown size={14} className="text-surface-500" /> : <ChevronRight size={14} className="text-surface-500" />}
-        <span className="text-sm font-medium text-surface-200 flex-1 truncate">{group.label}</span>
-        <span className="text-[10px] text-surface-500 bg-surface-800 px-1.5 py-0.5 rounded-md">
-          {group.songs.length}
+        {open ? (
+          <ChevronDown size={14} className="text-surface-500 shrink-0" />
+        ) : (
+          <ChevronRight size={14} className="text-surface-500 shrink-0" />
+        )}
+        <span className="text-sm font-medium text-surface-200 truncate flex-1">
+          {group.label}
         </span>
+        <span className="text-xs text-surface-500">{group.songs.length}</span>
       </button>
-      <AnimatePresence>
-        {isOpen && (
+
+      <AnimatePresence initial={false}>
+        {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -58,25 +157,21 @@ function CollapsibleGroup({ group }: { group: SongGroup }) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-1 pb-1 space-y-0.5">
-              {group.songs.map((song, i) => (
-                <SongRow key={song.index} song={song} index={i} />
+            <div className="px-1 pb-1">
+              {(group.songs as FilteredSong[]).map((song) => (
+                <SongRow
+                  key={song.index}
+                  song={song}
+                  selectionStatus={song.selectionStatus}
+                  isActive={activeSongIndex === song.index}
+                  searchQuery={searchQuery}
+                  onPlay={onPlay}
+                />
               ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center py-16 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mb-3">
-        <span className="text-3xl">🔍</span>
-      </div>
-      <p className="text-surface-400 text-sm">No songs match your filters</p>
     </div>
   );
 }

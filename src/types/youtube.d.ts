@@ -8,36 +8,44 @@ declare namespace YT {
     CUED = 5,
   }
 
+  interface PlayerEvent {
+    target: Player;
+    data: number;
+  }
+
   interface PlayerOptions {
     height?: string | number;
     width?: string | number;
     videoId?: string;
-    playerVars?: Record<string, unknown>;
+    playerVars?: Record<string, number | string>;
     events?: {
-      onReady?: (event: { target: Player }) => void;
-      onStateChange?: (event: OnStateChangeEvent) => void;
-      onError?: (event: { data: number }) => void;
+      onReady?: (event: PlayerEvent) => void;
+      onStateChange?: (event: PlayerEvent) => void;
+      onError?: (event: PlayerEvent) => void;
     };
   }
 
-  interface OnStateChangeEvent {
-    data: number;
-    target: Player;
-  }
-
   class Player {
-    constructor(element: string | HTMLElement, options: PlayerOptions);
+    constructor(elementId: string | HTMLElement, options: PlayerOptions);
+    loadVideoById(videoId: string): void;
+    cueVideoById(videoId: string): void;
     playVideo(): void;
     pauseVideo(): void;
     stopVideo(): void;
-    loadVideoById(videoId: string): void;
-    cueVideoById(videoId: string): void;
     seekTo(seconds: number, allowSeekAhead: boolean): void;
     setVolume(volume: number): void;
     getVolume(): number;
-    getPlayerState(): number;
+    mute(): void;
+    unMute(): void;
+    isMuted(): boolean;
     getCurrentTime(): number;
     getDuration(): number;
+    getPlayerState(): number;
     destroy(): void;
   }
+}
+
+interface Window {
+  YT: typeof YT;
+  onYouTubeIframeAPIReady: (() => void) | undefined;
 }

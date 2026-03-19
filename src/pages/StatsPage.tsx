@@ -1,125 +1,210 @@
-import { motion } from 'framer-motion';
-import { Volume2, VolumeX, Repeat, Repeat1, ListMusic, Shuffle, EyeOff, Eye } from 'lucide-react';
-import StatsDashboard from '../components/stats/StatsDashboard';
-import ExportPanel from '../components/stats/ExportPanel';
-import { useSongStore } from '../store/songStore';
-import { useSettingsStore } from '../store/settingsStore';
+import { useTranslation } from 'react-i18next';
+import {
+  Play,
+  Repeat,
+  Repeat1,
+  SkipForward,
+  Shuffle,
+  EyeOff,
+  Sun,
+  Moon,
+  Monitor,
+} from 'lucide-react';
+import { StatsDashboard } from '@/components/stats/StatsDashboard';
+import { ExportPanel } from '@/components/stats/ExportPanel';
+import { useSongStore } from '@/store/songStore';
+import { useSelectionStore } from '@/store/selectionStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import type { Theme } from '@/types';
 
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+const THEME_OPTIONS: { value: Theme; icon: typeof Sun; labelKey: string }[] = [
+  { value: 'dark', icon: Moon, labelKey: 'settings.appearance.themeDark' },
+  { value: 'light', icon: Sun, labelKey: 'settings.appearance.themeLight' },
+  { value: 'system', icon: Monitor, labelKey: 'settings.appearance.themeSystem' },
+];
+
+export default function StatsPage() {
+  const { t } = useTranslation();
+  const songs = useSongStore((s) => s.songs);
+  const selections = useSelectionStore((s) => s.selections);
+
+  const autoplay = useSettingsStore((s) => s.autoplay);
+  const loopMode = useSettingsStore((s) => s.loopMode);
+  const autoContinue = useSettingsStore((s) => s.autoContinue);
+  const shufflePlayback = useSettingsStore((s) => s.shufflePlayback);
+  const hideExplicit = useSettingsStore((s) => s.hideExplicit);
+  const theme = useSettingsStore((s) => s.theme);
+
+  const toggleAutoplay = useSettingsStore((s) => s.toggleAutoplay);
+  const cycleLoopMode = useSettingsStore((s) => s.cycleLoopMode);
+  const toggleAutoContinue = useSettingsStore((s) => s.toggleAutoContinue);
+  const toggleShufflePlayback = useSettingsStore((s) => s.toggleShufflePlayback);
+  const toggleHideExplicit = useSettingsStore((s) => s.toggleHideExplicit);
+  const setTheme = useSettingsStore((s) => s.setTheme);
+
+  const loopLabel =
+    loopMode === 'off' ? t('player.loop.off') :
+    loopMode === 'one' ? t('player.loop.one') :
+    t('player.loop.all');
+
+  const LoopIcon = loopMode === 'one' ? Repeat1 : Repeat;
+
+  return (
+    <div className="max-w-lg mx-auto px-4 py-4 space-y-6 pb-4">
+      {/* Settings */}
+      <section>
+        <h2 className="text-lg font-bold text-surface-100 mb-4">{t('settings.title')}</h2>
+
+        {/* Playback */}
+        <div className="bg-surface-800 rounded-2xl border border-surface-700 divide-y divide-surface-700">
+          <div className="px-4 py-3">
+            <h3 className="text-xs font-medium text-surface-500 uppercase tracking-wider">
+              {t('settings.playback.title')}
+            </h3>
+          </div>
+
+          <SettingToggle
+            icon={Play}
+            label={t('settings.playback.autoplay')}
+            active={autoplay}
+            onToggle={toggleAutoplay}
+          />
+          <SettingButton
+            icon={LoopIcon}
+            label={t('settings.playback.loopMode')}
+            value={loopLabel}
+            active={loopMode !== 'off'}
+            onClick={cycleLoopMode}
+          />
+          <SettingToggle
+            icon={SkipForward}
+            label={t('settings.playback.autoContinue')}
+            active={autoContinue}
+            onToggle={toggleAutoContinue}
+          />
+          <SettingToggle
+            icon={Shuffle}
+            label={t('settings.playback.shuffle')}
+            active={shufflePlayback}
+            onToggle={toggleShufflePlayback}
+          />
+        </div>
+
+        {/* Content */}
+        <div className="bg-surface-800 rounded-2xl border border-surface-700 divide-y divide-surface-700 mt-3">
+          <div className="px-4 py-3">
+            <h3 className="text-xs font-medium text-surface-500 uppercase tracking-wider">
+              {t('settings.content.title')}
+            </h3>
+          </div>
+          <SettingToggle
+            icon={EyeOff}
+            label={t('settings.content.hideExplicit')}
+            active={hideExplicit}
+            onToggle={toggleHideExplicit}
+          />
+        </div>
+
+        {/* Appearance */}
+        <div className="bg-surface-800 rounded-2xl border border-surface-700 divide-y divide-surface-700 mt-3">
+          <div className="px-4 py-3">
+            <h3 className="text-xs font-medium text-surface-500 uppercase tracking-wider">
+              {t('settings.appearance.title')}
+            </h3>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-sm text-surface-200 mb-2">{t('settings.appearance.theme')}</p>
+            <div className="flex gap-2">
+              {THEME_OPTIONS.map(({ value, icon: Icon, labelKey }) => (
+                <button
+                  key={value}
+                  onClick={() => setTheme(value)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    theme === value
+                      ? 'bg-accent-500 text-white'
+                      : 'bg-surface-700 text-surface-400 hover:text-surface-200'
+                  }`}
+                  aria-pressed={theme === value}
+                >
+                  <Icon size={14} />
+                  {t(labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats */}
+      {songs.length > 0 && (
+        <section>
+          <h2 className="text-lg font-bold text-surface-100 mb-4">{t('stats.title')}</h2>
+          <StatsDashboard songs={songs} selections={selections} />
+        </section>
+      )}
+
+      {/* Export */}
+      <section>
+        <ExportPanel />
+      </section>
+    </div>
+  );
+}
+
+function SettingToggle({
+  icon: Icon,
+  label,
+  active,
+  onToggle,
+}: {
+  icon: typeof Play;
+  label: string;
+  active: boolean;
+  onToggle: () => void;
+}) {
   return (
     <button
       onClick={onToggle}
-      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-        on ? 'bg-accent-600' : 'bg-surface-600'
-      }`}
+      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-700/50 transition-colors"
     >
-      <span
-        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-          on ? 'translate-x-5' : 'translate-x-0'
+      <Icon size={16} className={active ? 'text-accent-400' : 'text-surface-500'} />
+      <span className="text-sm text-surface-200 flex-1 text-left">{label}</span>
+      <div
+        className={`w-10 h-6 rounded-full transition-colors relative ${
+          active ? 'bg-accent-500' : 'bg-surface-600'
         }`}
-      />
+      >
+        <div
+          className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+            active ? 'translate-x-5' : 'translate-x-1'
+          }`}
+        />
+      </div>
     </button>
   );
 }
 
-function SettingRow({ icon, title, description, control }: { icon: React.ReactNode; title: string; description: string; control: React.ReactNode }) {
+function SettingButton({
+  icon: Icon,
+  label,
+  value,
+  active,
+  onClick,
+}: {
+  icon: typeof Play;
+  label: string;
+  value: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="shrink-0">{icon}</div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-surface-200">{title}</p>
-          <p className="text-[11px] text-surface-500">{description}</p>
-        </div>
-      </div>
-      {control}
-    </div>
-  );
-}
-
-export default function StatsPage() {
-  const songs = useSongStore((s) => s.songs);
-  const {
-    autoplay, toggleAutoplay,
-    loopMode, cycleLoopMode,
-    autoContinue, toggleAutoContinue,
-    shufflePlayback, toggleShufflePlayback,
-    hideExplicit, toggleHideExplicit,
-  } = useSettingsStore();
-
-  const loopLabel = loopMode === 'off' ? 'Off' : loopMode === 'one' ? 'Repeat One' : 'Repeat All';
-  const LoopIcon = loopMode === 'one' ? Repeat1 : Repeat;
-
-  return (
-    <div className="max-w-lg mx-auto w-full px-4 py-4 space-y-6">
-      <motion.h1
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-lg font-bold text-surface-100"
-      >
-        Settings
-      </motion.h1>
-
-      {/* Playback */}
-      <div className="space-y-1.5">
-        <h2 className="text-xs font-medium text-surface-400 uppercase tracking-wider px-1">Playback</h2>
-        <div className="p-4 rounded-2xl bg-surface-800/60 border border-surface-700/40 space-y-4">
-          <SettingRow
-            icon={autoplay ? <Volume2 size={18} className="text-accent-400" /> : <VolumeX size={18} className="text-surface-500" />}
-            title="Autoplay"
-            description="Auto-play songs while swiping"
-            control={<Toggle on={autoplay} onToggle={toggleAutoplay} />}
-          />
-          <SettingRow
-            icon={<LoopIcon size={18} className={loopMode !== 'off' ? 'text-accent-400' : 'text-surface-500'} />}
-            title={`Loop: ${loopLabel}`}
-            description="Off → Repeat One → Repeat All"
-            control={
-              <button onClick={cycleLoopMode} className="px-3 py-1.5 text-xs font-medium bg-surface-700 hover:bg-surface-600 rounded-lg transition-colors text-surface-200">
-                {loopLabel}
-              </button>
-            }
-          />
-          <SettingRow
-            icon={<ListMusic size={18} className={autoContinue ? 'text-accent-400' : 'text-surface-500'} />}
-            title="Auto-Continue"
-            description="Play next song when current ends"
-            control={<Toggle on={autoContinue} onToggle={toggleAutoContinue} />}
-          />
-          <SettingRow
-            icon={<Shuffle size={18} className={shufflePlayback ? 'text-accent-400' : 'text-surface-500'} />}
-            title="Shuffle"
-            description="Randomize next song order"
-            control={<Toggle on={shufflePlayback} onToggle={toggleShufflePlayback} />}
-          />
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="space-y-1.5">
-        <h2 className="text-xs font-medium text-surface-400 uppercase tracking-wider px-1">Content</h2>
-        <div className="p-4 rounded-2xl bg-surface-800/60 border border-surface-700/40 space-y-4">
-          <SettingRow
-            icon={hideExplicit ? <EyeOff size={18} className="text-rose-400" /> : <Eye size={18} className="text-surface-500" />}
-            title="Hide Explicit"
-            description="Hide explicit songs from library & swipe"
-            control={<Toggle on={hideExplicit} onToggle={toggleHideExplicit} />}
-          />
-        </div>
-      </div>
-
-      {/* Stats — only show if songs loaded */}
-      {songs.length > 0 && (
-        <div className="space-y-1.5">
-          <h2 className="text-xs font-medium text-surface-400 uppercase tracking-wider px-1">Statistics</h2>
-          <StatsDashboard />
-        </div>
-      )}
-
-      <div className="space-y-1.5">
-        <h2 className="text-xs font-medium text-surface-400 uppercase tracking-wider px-1">Export & Data</h2>
-        <ExportPanel />
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-700/50 transition-colors"
+    >
+      <Icon size={16} className={active ? 'text-accent-400' : 'text-surface-500'} />
+      <span className="text-sm text-surface-200 flex-1 text-left">{label}</span>
+      <span className="text-xs text-surface-400">{value}</span>
+    </button>
   );
 }

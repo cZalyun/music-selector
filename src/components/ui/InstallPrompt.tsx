@@ -1,62 +1,44 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Download, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-export default function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+export function InstallPrompt() {
+  const { canInstall, isIOS, install } = usePWAInstall();
   const [dismissed, setDismissed] = useState(false);
+  const { t } = useTranslation();
 
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-    }
-  };
-
-  if (!deferredPrompt || dismissed) return null;
+  if (!canInstall || dismissed || isIOS) return null;
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 50 }}
-        className="fixed bottom-20 left-4 right-4 z-50 max-w-sm mx-auto"
+        className="fixed z-40 left-4 right-4 bg-surface-800 border border-surface-700 rounded-2xl p-4 shadow-2xl flex items-center gap-3"
+        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 100, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
       >
-        <div className="bg-surface-800 border border-surface-600 rounded-2xl p-4 flex items-center gap-3 shadow-2xl">
-          <div className="w-10 h-10 rounded-xl bg-accent-600/20 flex items-center justify-center shrink-0">
-            <Download size={20} className="text-accent-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-surface-100">Install App</p>
-            <p className="text-xs text-surface-400">Add to home screen for the best experience</p>
-          </div>
-          <button
-            onClick={handleInstall}
-            className="px-3 py-1.5 bg-accent-600 hover:bg-accent-500 text-white text-xs font-medium rounded-lg transition-colors"
-          >
-            Install
-          </button>
-          <button onClick={() => setDismissed(true)} className="text-surface-500 hover:text-surface-300">
-            <X size={16} />
-          </button>
-        </div>
+        <Download size={20} className="text-accent-400 shrink-0" />
+        <span className="text-sm text-surface-200 flex-1">
+          {t('pwa.installBanner')}
+        </span>
+        <button
+          onClick={install}
+          className="px-3 py-1.5 bg-accent-500 text-white text-sm font-medium rounded-lg hover:bg-accent-600 transition-colors"
+          aria-label={t('pwa.install')}
+        >
+          {t('pwa.install')}
+        </button>
+        <button
+          onClick={() => setDismissed(true)}
+          className="p-1 text-surface-400 hover:text-surface-200 transition-colors"
+          aria-label={t('pwa.dismiss')}
+        >
+          <X size={16} />
+        </button>
       </motion.div>
     </AnimatePresence>
   );

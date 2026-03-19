@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -10,27 +10,19 @@ function isIPhone(): boolean {
 }
 
 function isInStandaloneMode(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as unknown as { standalone?: boolean }).standalone === true;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true
+  );
 }
 
 export function usePWAInstall() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(isInStandaloneMode);
+  const [isIOS] = useState(isIPhone);
 
   useEffect(() => {
-    if (isInStandaloneMode()) {
-      setIsInstalled(true);
-      return;
-    }
-
-    // iOS doesn't support beforeinstallprompt — show manual guide instead
-    if (isIPhone()) {
-      setShowIOSGuide(true);
-      return;
-    }
-
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -50,22 +42,23 @@ export function usePWAInstall() {
     };
   }, []);
 
-  const install = async () => {
+  const install = useCallback(async (): Promise<boolean> => {
     if (!deferredPrompt) return false;
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    if (outcome === 'accepted') {
-      setIsInstalled(true);
-      return true;
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      setDeferredPrompt(null);
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+        return true;
+      }
+    } catch {
+      // User dismissed or error
     }
     return false;
-  };
+  }, [deferredPrompt]);
 
-  return {
-    canInstall: (!!deferredPrompt || showIOSGuide) && !isInstalled,
-    isInstalled,
-    isIOS: showIOSGuide,
-    install,
-  };
+  const canInstall = !isInstalled && (!!deferredPrompt || isIOS);
+
+  return { canInstall, isInstalled, isIOS, install };
 }

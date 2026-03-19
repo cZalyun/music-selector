@@ -24,18 +24,30 @@ export interface Selection {
   timestamp: number;
 }
 
-export interface SongWithSelection extends Song {
-  selection?: Selection;
-}
-
-export type SortField = 'title' | 'primaryArtist' | 'album' | 'durationSeconds' | 'index';
+export type SortField = 'index' | 'title' | 'artist' | 'duration';
 export type SortDirection = 'asc' | 'desc';
 export type GroupBy = 'none' | 'artist' | 'album' | 'duration' | 'status';
-export type LibraryTab = 'all' | 'liked' | 'disliked' | 'unreviewed';
+export type TabFilter = 'all' | 'liked' | 'disliked' | 'unreviewed';
+export type LoopMode = 'off' | 'one' | 'all';
+export type ToastType = 'success' | 'error' | 'info';
+export type Theme = 'dark' | 'light' | 'system';
 
-export interface FilterState {
+export interface Toast {
+  id: string;
+  message: string;
+  type: ToastType;
+  role: 'status' | 'alert';
+  createdAt: number;
+}
+
+export interface SongGroup {
+  label: string;
+  songs: Song[];
+}
+
+export interface FilterOptions {
+  tab: TabFilter;
   search: string;
-  tab: LibraryTab;
   sortField: SortField;
   sortDirection: SortDirection;
   groupBy: GroupBy;

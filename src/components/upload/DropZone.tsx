@@ -1,160 +1,168 @@
-import { useState, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { parseCSV } from '../../utils/csv';
-import { useSongStore } from '../../store/songStore';
-import { useToastStore } from '../../store/toastStore';
-import type { Song } from '../../types';
+import { useState, useRef, useCallback } from 'react';
+import { Upload, FileText, AlertCircle, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { parseCSV } from '@/utils/csv';
+import { useSongStore } from '@/store/songStore';
+import { useToastStore } from '@/store/toastStore';
 
-interface DropZoneProps {
-  onSuccess: () => void;
-}
-
-export default function DropZone({ onSuccess }: DropZoneProps) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [preview, setPreview] = useState<Song[] | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+export function DropZone() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const setSongs = useSongStore((s) => s.setSongs);
   const addToast = useToastStore((s) => s.addToast);
 
-  const processFile = useCallback(async (file: File) => {
+  const [dragging, setDragging] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [preview, setPreview] = useState<{ title: string; artist: string }[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback(async (file: File) => {
     if (!file.name.endsWith('.csv')) {
       setErrors(['Please upload a CSV file']);
       return;
     }
 
-    setIsProcessing(true);
+    setProcessing(true);
     setErrors([]);
-    setPreview(null);
+    setPreview([]);
 
     const { songs, errors: parseErrors } = await parseCSV(file);
 
-    if (parseErrors.length > 0) {
+    if (parseErrors.length > 0 && songs.length === 0) {
       setErrors(parseErrors);
+      setProcessing(false);
+      return;
     }
 
-    if (songs.length > 0) {
-      setPreview(songs.slice(0, 5));
-      setSongs(songs, file.name);
-      addToast(`Loaded ${songs.length} songs from ${file.name}`, 'success');
+    if (songs.length === 0) {
+      setErrors(['No songs found in file']);
+      setProcessing(false);
+      return;
     }
 
-    setIsProcessing(false);
-  }, [setSongs, addToast]);
+    setSongs(songs, file.name);
+    setPreview(songs.slice(0, 5).map((s) => ({ title: s.title, artist: s.primaryArtist })));
+    setErrors(parseErrors);
+    setLoaded(true);
+    setProcessing(false);
+    addToast(t('toast.csvLoaded', { count: songs.length, file: file.name }), 'success');
+  }, [setSongs, addToast, t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    setDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
-  }, [processFile]);
+    if (file) handleFile(file);
+  }, [handleFile]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragging(false);
+  }, []);
+
+  const handleClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
+    if (file) handleFile(file);
+  }, [handleFile]);
+
+  if (loaded) {
+    return (
+      <div className="space-y-4">
+        {preview.length > 0 && (
+          <div className="bg-surface-800 rounded-2xl p-4 border border-surface-700">
+            <p className="text-sm text-surface-400 mb-3">
+              {t('home.dropzone.preview', { count: preview.length })}
+            </p>
+            <div className="space-y-2">
+              {preview.map((s, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <span className="text-surface-500 w-5 text-right">{i + 1}</span>
+                  <span className="text-surface-100 truncate flex-1">{s.title}</span>
+                  <span className="text-surface-400 truncate">{s.artist}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <button
+          onClick={() => navigate('/swipe')}
+          className="w-full py-3 bg-accent-500 text-white font-medium rounded-xl hover:bg-accent-600 transition-colors"
+        >
+          {t('home.dropzone.startReviewing')}
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-lg mx-auto px-4">
-      <motion.div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
+    <div>
+      <div
         onDrop={handleDrop}
-        onClick={() => fileRef.current?.click()}
-        animate={{
-          borderColor: isDragging ? '#a855f7' : '#334155',
-          backgroundColor: isDragging ? 'rgba(168, 85, 247, 0.05)' : 'rgba(30, 41, 59, 0.5)',
-        }}
-        className="relative border-2 border-dashed rounded-2xl p-8 cursor-pointer transition-all flex flex-col items-center gap-4 text-center"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={handleClick}
+        className={`relative flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed transition-all cursor-pointer ${
+          dragging
+            ? 'border-accent-400 bg-accent-500/10'
+            : 'border-surface-600 bg-surface-800/50 hover:border-surface-500 hover:bg-surface-800/70'
+        }`}
+        role="button"
+        tabIndex={0}
+        aria-label={t('home.dropzone.title')}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); }}
       >
         <input
-          ref={fileRef}
+          ref={fileInputRef}
           type="file"
           accept=".csv"
-          onChange={handleFileChange}
+          onChange={handleInputChange}
           className="hidden"
+          aria-hidden="true"
         />
 
-        {isProcessing ? (
-          <div className="flex flex-col items-center gap-3">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-            >
-              <FileSpreadsheet size={40} className="text-accent-400" />
-            </motion.div>
-            <p className="text-surface-300 text-sm">Processing CSV...</p>
-          </div>
+        {processing ? (
+          <>
+            <Loader2 size={40} className="text-accent-400 animate-spin mb-3" />
+            <p className="text-surface-300 text-sm">{t('home.dropzone.processing')}</p>
+          </>
         ) : (
           <>
-            <motion.div
-              animate={{ y: isDragging ? -4 : 0 }}
-              className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center"
-            >
-              <Upload size={28} className={isDragging ? 'text-accent-400' : 'text-surface-400'} />
-            </motion.div>
-            <div>
-              <p className="text-surface-200 font-medium">
-                {isDragging ? 'Drop your CSV here' : 'Upload your music CSV'}
-              </p>
-              <p className="text-surface-500 text-sm mt-1">
-                Drag & drop or tap to browse
-              </p>
-            </div>
+            {dragging ? (
+              <FileText size={40} className="text-accent-400 mb-3" />
+            ) : (
+              <Upload size={40} className="text-surface-400 mb-3" />
+            )}
+            <p className="text-surface-200 font-medium mb-1">
+              {dragging ? t('home.dropzone.dragging') : t('home.dropzone.title')}
+            </p>
+            {!dragging && (
+              <p className="text-surface-500 text-sm">{t('home.dropzone.subtitle')}</p>
+            )}
           </>
         )}
-      </motion.div>
+      </div>
 
       {errors.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4 p-3 rounded-xl bg-rose-950/40 border border-rose-800/50"
-        >
+        <div className="mt-3 space-y-1">
           {errors.map((err, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm text-rose-300">
-              <AlertCircle size={14} className="mt-0.5 shrink-0" />
+            <div key={i} className="flex items-start gap-2 text-sm text-dislike">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
               <span>{err}</span>
             </div>
           ))}
-        </motion.div>
-      )}
-
-      {preview && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4 p-4 rounded-xl bg-surface-800/60 border border-surface-700/50"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 size={16} className="text-emerald-400" />
-            <span className="text-sm font-medium text-surface-200">
-              {useSongStore.getState().songs.length} songs loaded
-            </span>
-          </div>
-          <div className="space-y-2">
-            {preview.map((song) => (
-              <div key={song.index} className="flex items-center gap-3 p-2 rounded-lg bg-surface-900/50">
-                {song.thumbnail && (
-                  <img src={song.thumbnail} alt="" className="w-8 h-8 rounded object-cover" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-surface-200 truncate">{song.title}</p>
-                  <p className="text-[10px] text-surface-500 truncate">{song.primaryArtist}</p>
-                </div>
-                <span className="text-[10px] text-surface-500">{song.duration}</span>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); onSuccess(); }}
-            className="mt-4 w-full py-3 bg-accent-600 hover:bg-accent-500 text-white font-medium rounded-xl transition-colors text-sm"
-          >
-            Start Reviewing
-          </button>
-        </motion.div>
+        </div>
       )}
     </div>
   );

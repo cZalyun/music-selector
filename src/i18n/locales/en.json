@@ -1,0 +1,224 @@
+{
+  "app": {
+    "name": "Music Selector",
+    "description": "Review and curate your YouTube Music liked songs"
+  },
+  "nav": {
+    "upload": "Upload",
+    "swipe": "Swipe",
+    "library": "Library",
+    "settings": "Settings"
+  },
+  "home": {
+    "title": "Music Selector",
+    "subtitle": "Review your YouTube Music liked songs with swipe gestures",
+    "dropzone": {
+      "title": "Drop your CSV file here",
+      "subtitle": "or click to browse",
+      "dragging": "Drop to upload",
+      "processing": "Processing...",
+      "parseError": "Error parsing CSV: {{error}}",
+      "preview": "Preview (first {{count}} songs)",
+      "startReviewing": "Start Reviewing",
+      "loadSample": "Load Sample Data ({{count}} songs)"
+    },
+    "resume": {
+      "title": "Continue Session",
+      "file": "File: {{name}}",
+      "songs": "{{total}} songs",
+      "reviewed": "{{count}} reviewed ({{percent}}%)",
+      "continue": "Continue Reviewing"
+    },
+    "howToUse": {
+      "title": "How To Use",
+      "bookmarklet": {
+        "title": "Step 1: Get Your Songs",
+        "step1": "Open YouTube Music → Library → Liked Songs",
+        "step2": "Drag this bookmarklet to your bookmarks bar:",
+        "step3": "Click the bookmarklet on the Liked Songs page",
+        "step4": "Wait for it to scroll and scrape all songs",
+        "step5": "A CSV file will download automatically",
+        "copyButton": "Copy Bookmarklet Code",
+        "copied": "Copied!"
+      },
+      "swipe": {
+        "title": "Step 2: Review Songs",
+        "right": "Swipe right → Like",
+        "left": "Swipe left → Dislike",
+        "up": "Swipe up → Skip"
+      },
+      "library": {
+        "title": "Step 3: Browse & Export",
+        "description": "View, search, sort, and group your reviewed songs. Export liked songs as CSV."
+      },
+      "tips": {
+        "title": "Tips",
+        "undo": "Use Undo to reverse your last decision",
+        "keyboard": "Keyboard: → Like, ← Dislike, ↑ Skip, Space Play/Pause, Z Undo",
+        "install": "Install as an app for the best experience"
+      }
+    },
+    "install": {
+      "button": "Install App",
+      "iosGuide": "Open in Safari → Tap Share → Add to Home Screen"
+    },
+    "feedback": "Send Feedback"
+  },
+  "swipe": {
+    "progress": "{{reviewed}} of {{total}} reviewed ({{percent}}%)",
+    "remaining": "{{count}} remaining",
+    "allDone": {
+      "title": "All Done!",
+      "subtitle": "You've reviewed all songs. Head to the Library to see your results."
+    },
+    "noSongs": {
+      "title": "No Songs Loaded",
+      "subtitle": "Upload a CSV or load sample data from the home page."
+    },
+    "overlays": {
+      "like": "LIKE",
+      "nope": "NOPE",
+      "skip": "SKIP"
+    }
+  },
+  "player": {
+    "tapToPlay": "Tap ▶ to play",
+    "stop": "Stop",
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next track",
+    "previous": "Previous track",
+    "loop": {
+      "off": "Loop off",
+      "one": "Repeat one",
+      "all": "Repeat all"
+    },
+    "autoContinue": "Auto-continue",
+    "shuffle": "Shuffle",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "volume": "Volume",
+    "openOnYoutube": "Open on YouTube",
+    "openOnYoutubeMusic": "Open on YouTube Music",
+    "videoUnavailable": "This video is unavailable — skipping",
+    "videoError": "Playback error — skipping to next"
+  },
+  "library": {
+    "search": "Search songs...",
+    "clearSearch": "Clear search",
+    "tabs": {
+      "all": "All",
+      "liked": "Liked",
+      "disliked": "Disliked",
+      "unreviewed": "Unreviewed"
+    },
+    "sort": {
+      "index": "#",
+      "title": "Title",
+      "artist": "Artist",
+      "duration": "Duration"
+    },
+    "group": {
+      "none": "None",
+      "artist": "Artist",
+      "album": "Album",
+      "duration": "Duration",
+      "status": "Status"
+    },
+    "shufflePlay": "Shuffle Play",
+    "jumpToUnreviewed": "Jump to unreviewed",
+    "noResults": "No songs match your filters",
+    "resultCount": "{{count}} songs",
+    "nowPlaying": "Now playing",
+    "explicit": "Explicit",
+    "share": "Share"
+  },
+  "stats": {
+    "title": "Statistics",
+    "cards": {
+      "total": "Total Songs",
+      "liked": "Liked",
+      "disliked": "Disliked",
+      "skipped": "Skipped"
+    },
+    "completion": "Review Completion",
+    "distribution": "Review Distribution",
+    "topArtists": "Top 5 Liked Artists",
+    "topAlbums": "Top 5 Liked Albums",
+    "estimatedTime": "~{{minutes}} min remaining",
+    "reviewSpeed": "{{count}} songs/min this session"
+  },
+  "settings": {
+    "title": "Settings",
+    "playback": {
+      "title": "Playback",
+      "autoplay": "Autoplay",
+      "loopMode": "Loop Mode",
+      "autoContinue": "Auto-Continue",
+      "shuffle": "Shuffle Playback"
+    },
+    "content": {
+      "title": "Content",
+      "hideExplicit": "Hide Explicit"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "themeDark": "Dark",
+      "themeLight": "Light",
+      "themeSystem": "System",
+      "language": "Language"
+    }
+  },
+  "export": {
+    "title": "Export & Data",
+    "likedCsv": "Export Liked Songs (CSV)",
+    "allCsv": "Export All Songs (CSV)",
+    "backupJson": "Backup (JSON)",
+    "restore": "Restore from Backup",
+    "reset": "Reset All Data",
+    "resetConfirm": {
+      "title": "Reset All Data?",
+      "message": "This will clear all songs and selections. This cannot be undone.",
+      "confirm": "Reset Everything",
+      "cancel": "Cancel"
+    },
+    "restoreSuccess": "Backup restored successfully ({{songs}} songs, {{selections}} selections)",
+    "restoreError": "Invalid backup file",
+    "exportSuccess": "Exported {{count}} songs",
+    "noLikedSongs": "No liked songs to export",
+    "noSongs": "No songs loaded"
+  },
+  "toast": {
+    "liked": "Liked! ❤️",
+    "csvLoaded": "Loaded {{count}} songs from {{file}}",
+    "sampleLoaded": "Loaded {{count}} sample songs",
+    "copied": "Copied to clipboard",
+    "installed": "App installed successfully",
+    "updateAvailable": "Update available — tap to reload",
+    "offline": "You're offline — cached content still works",
+    "backOnline": "Back online"
+  },
+  "pwa": {
+    "installBanner": "Install Music Selector for the best experience",
+    "install": "Install",
+    "dismiss": "Dismiss"
+  },
+  "errors": {
+    "csvMissingColumns": "CSV is missing required columns: {{columns}}",
+    "csvParseError": "Failed to parse CSV: {{error}}",
+    "csvTruncatedErrors": "...and {{count}} more errors",
+    "genericError": "Something went wrong",
+    "reloadButton": "Reload App"
+  },
+  "a11y": {
+    "skipToContent": "Skip to content",
+    "likeButton": "Like this song",
+    "dislikeButton": "Dislike this song",
+    "skipButton": "Skip this song",
+    "undoButton": "Undo last selection",
+    "playPauseButton": "Play or pause",
+    "songCard": "{{title}} by {{artist}}",
+    "progressBar": "Review progress: {{reviewed}} of {{total}}"
+  }
+}

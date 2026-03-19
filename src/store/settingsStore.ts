@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-export type LoopMode = 'off' | 'one' | 'all';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { LoopMode, Theme } from '@/types';
+import { idbStorage } from './idbStorage';
 
 interface SettingsState {
   autoplay: boolean;
@@ -9,32 +9,46 @@ interface SettingsState {
   autoContinue: boolean;
   shufflePlayback: boolean;
   hideExplicit: boolean;
+  theme: Theme;
+  locale: string;
   toggleAutoplay: () => void;
   cycleLoopMode: () => void;
   toggleAutoContinue: () => void;
   toggleShufflePlayback: () => void;
   toggleHideExplicit: () => void;
+  setTheme: (theme: Theme) => void;
+  setLocale: (locale: string) => void;
 }
 
-const loopCycle: LoopMode[] = ['off', 'one', 'all'];
+const LOOP_CYCLE: LoopMode[] = ['off', 'one', 'all'];
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       autoplay: true,
       loopMode: 'off' as LoopMode,
-      autoContinue: false,
+      autoContinue: true,
       shufflePlayback: false,
       hideExplicit: false,
+      theme: 'dark' as Theme,
+      locale: 'en',
+
       toggleAutoplay: () => set((s) => ({ autoplay: !s.autoplay })),
-      cycleLoopMode: () =>
-        set((s) => ({
-          loopMode: loopCycle[(loopCycle.indexOf(s.loopMode) + 1) % loopCycle.length],
-        })),
+      cycleLoopMode: () => {
+        const current = get().loopMode;
+        const idx = LOOP_CYCLE.indexOf(current);
+        const next = LOOP_CYCLE[(idx + 1) % LOOP_CYCLE.length]!;
+        set({ loopMode: next });
+      },
       toggleAutoContinue: () => set((s) => ({ autoContinue: !s.autoContinue })),
       toggleShufflePlayback: () => set((s) => ({ shufflePlayback: !s.shufflePlayback })),
       toggleHideExplicit: () => set((s) => ({ hideExplicit: !s.hideExplicit })),
+      setTheme: (theme) => set({ theme }),
+      setLocale: (locale) => set({ locale }),
     }),
-    { name: 'music-selector-settings' }
-  )
+    {
+      name: 'music-selector-settings',
+      storage: createJSONStorage(() => idbStorage),
+    },
+  ),
 );

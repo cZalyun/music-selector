@@ -1,43 +1,44 @@
-import type { SongWithSelection, GroupBy } from '../types';
+import type { GroupBy, SongGroup } from '@/types';
+import type { FilteredSong } from './search';
 
-export interface SongGroup {
-  label: string;
-  songs: SongWithSelection[];
-}
+export function groupSongs(
+  songs: FilteredSong[],
+  groupBy: GroupBy,
+): SongGroup[] | null {
+  if (groupBy === 'none') return null;
 
-export function groupSongs(songs: SongWithSelection[], groupBy: GroupBy): SongGroup[] {
-  if (groupBy === 'none') {
-    return [{ label: 'All Songs', songs }];
-  }
-
-  const map = new Map<string, SongWithSelection[]>();
+  const map = new Map<string, FilteredSong[]>();
 
   for (const song of songs) {
     const key = getGroupKey(song, groupBy);
-    const arr = map.get(key) ?? [];
-    arr.push(song);
-    map.set(key, arr);
+    const group = map.get(key);
+    if (group) {
+      group.push(song);
+    } else {
+      map.set(key, [song]);
+    }
   }
 
   return Array.from(map.entries())
-    .map(([label, items]) => ({ label, songs: items }))
+    .map(([label, groupSongs]) => ({ label, songs: groupSongs }))
     .sort((a, b) => b.songs.length - a.songs.length);
 }
 
-function getGroupKey(song: SongWithSelection, groupBy: GroupBy): string {
+function getGroupKey(song: FilteredSong, groupBy: GroupBy): string {
   switch (groupBy) {
     case 'artist':
       return song.primaryArtist || 'Unknown Artist';
     case 'album':
-      return song.album || 'No Album';
-    case 'duration':
-      if (song.durationSeconds < 120) return '< 2 min';
-      if (song.durationSeconds < 540) return '2–9 min';
+      return song.album || 'Unknown Album';
+    case 'duration': {
+      const secs = song.durationSeconds;
+      if (secs < 120) return 'Under 2 min';
+      if (secs < 540) return '2–9 min';
       return '9+ min';
+    }
     case 'status':
-      if (!song.selection) return 'Unreviewed';
-      return song.selection.status.charAt(0).toUpperCase() + song.selection.status.slice(1);
+      return song.selectionStatus ?? 'Unreviewed';
     default:
-      return 'All';
+      return 'Unknown';
   }
 }

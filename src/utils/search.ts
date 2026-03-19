@@ -1,58 +1,90 @@
-import type { Song, SongWithSelection, Selection, FilterState, LibraryTab } from '../types';
+import type { Song, Selection, FilterOptions, TabFilter } from '@/types';
+
+export interface FilteredSong extends Song {
+  selectionStatus?: Selection['status'];
+}
 
 export function filterSongs(
   songs: Song[],
-  selections: Map<number, Selection>,
-  filters: FilterState
-): SongWithSelection[] {
-  let result: SongWithSelection[] = songs.map((s) => ({
-    ...s,
-    selection: selections.get(s.index),
+  selections: Record<number, Selection>,
+  options: FilterOptions,
+): FilteredSong[] {
+  let result: FilteredSong[] = songs.map((song) => ({
+    ...song,
+    selectionStatus: selections[song.index]?.status,
   }));
 
   // Tab filter
-  result = filterByTab(result, filters.tab);
+  result = filterByTab(result, options.tab);
 
-  // Search
-  if (filters.search.trim()) {
-    const q = filters.search.toLowerCase().trim();
-    result = result.filter(
-      (s) =>
-        s.titleNormalized.includes(q) ||
-        s.primaryArtist.toLowerCase().includes(q) ||
-        s.album.toLowerCase().includes(q)
-    );
+  // Hide explicit
+  if (options.hideExplicit) {
+    result = result.filter((s) => !s.isExplicit);
   }
 
-  // Explicit filter
-  if (filters.hideExplicit) {
-    result = result.filter((s) => !s.isExplicit);
+  // Search
+  if (options.search.trim()) {
+    const query = options.search.toLowerCase().trim();
+    result = result.filter(
+      (s) =>
+        s.title.toLowerCase().includes(query) ||
+        s.primaryArtist.toLowerCase().includes(query) ||
+        s.album.toLowerCase().includes(query),
+    );
   }
 
   // Sort
   result.sort((a, b) => {
-    const dir = filters.sortDirection === 'asc' ? 1 : -1;
-    const field = filters.sortField;
-    const aVal = a[field];
-    const bVal = b[field];
-    if (typeof aVal === 'string' && typeof bVal === 'string') {
-      return aVal.localeCompare(bVal) * dir;
+    const dir = options.sortDirection === 'asc' ? 1 : -1;
+    switch (options.sortField) {
+      case 'index':
+        return (a.index - b.index) * dir;
+      case 'title':
+        return a.title.localeCompare(b.title) * dir;
+      case 'artist':
+        return a.primaryArtist.localeCompare(b.primaryArtist) * dir;
+      case 'duration':
+        return (a.durationSeconds - b.durationSeconds) * dir;
+      default:
+        return 0;
     }
-    return ((aVal as number) - (bVal as number)) * dir;
   });
 
   return result;
 }
 
-function filterByTab(songs: SongWithSelection[], tab: LibraryTab): SongWithSelection[] {
+export function filterByTab<T extends FilteredSong>(
+  songs: T[],
+  tab: TabFilter,
+): T[] {
   switch (tab) {
     case 'liked':
-      return songs.filter((s) => s.selection?.status === 'liked');
+      return songs.filter((s) => s.selectionStatus === 'liked');
     case 'disliked':
-      return songs.filter((s) => s.selection?.status === 'disliked');
+      return songs.filter((s) => s.selectionStatus === 'disliked');
     case 'unreviewed':
-      return songs.filter((s) => !s.selection);
+      return songs.filter((s) => !s.selectionStatus);
     default:
       return songs;
   }
+}
+
+export function getSearchHighlightRanges(
+  text: string,
+  query: string,
+): Array<{ start: number; end: number }> {
+  if (!query.trim()) return [];
+  const ranges: Array<{ start: number; end: number }> = [];
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase().trim();
+  let startIndex = 0;
+
+  while (startIndex < lowerText.length) {
+    const idx = lowerText.indexOf(lowerQuery, startIndex);
+    if (idx === -1) break;
+    ranges.push({ start: idx, end: idx + lowerQuery.length });
+    startIndex = idx + 1;
+  }
+
+  return ranges;
 }

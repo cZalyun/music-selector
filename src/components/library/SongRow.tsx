@@ -1,126 +1,211 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Play, Heart, ThumbsDown, SkipForward } from 'lucide-react';
-import type { SongWithSelection } from '../../types';
-import { usePlayerStore } from '../../store/playerStore';
-import { getThumbnailUrl, getFallbackThumbnail } from '../../utils/thumbnail';
-import { loadVideoFromGesture } from '../../utils/playerBridge';
+import { memo, useState, useRef, useEffect, useCallback } from 'react';
+import { Heart, ThumbsDown, SkipForward, Play } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { Song, SelectionStatus } from '@/types';
+import { getThumbnailUrl, getFallbackThumbnail } from '@/utils/thumbnail';
+import { getSearchHighlightRanges } from '@/utils/search';
+import { acquireSlot } from '@/utils/imageQueue';
+import { LAZY_LOAD_ROOT_MARGIN } from '@/constants';
 
 interface SongRowProps {
-  song: SongWithSelection;
-  index: number;
+  song: Song;
+  selectionStatus?: SelectionStatus;
+  isActive: boolean;
+  searchQuery: string;
+  onPlay: (song: Song) => void;
 }
 
-const statusConfig = {
-  liked: { icon: Heart, color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
-  disliked: { icon: ThumbsDown, color: 'text-rose-400', bg: 'bg-rose-900/30' },
-  skipped: { icon: SkipForward, color: 'text-amber-400', bg: 'bg-amber-900/30' },
+const STATUS_CONFIG: Record<SelectionStatus, { icon: typeof Heart; color: string; bg: string }> = {
+  liked: { icon: Heart, color: 'text-like', bg: 'bg-like/10' },
+  disliked: { icon: ThumbsDown, color: 'text-dislike', bg: 'bg-dislike/10' },
+  skipped: { icon: SkipForward, color: 'text-skip', bg: 'bg-skip/10' },
 };
 
-export default function SongRow({ song, index }: SongRowProps) {
-  const { setCurrentSong, currentSongIndex } = usePlayerStore();
-  const isActive = currentSongIndex === song.index;
+export const SongRow = memo(function SongRow({
+  song,
+  selectionStatus,
+  isActive,
+  searchQuery,
+  onPlay,
+}: SongRowProps) {
+  const { t } = useTranslation();
 
-  const handlePlay = () => {
-    loadVideoFromGesture(song.videoId);
-    setCurrentSong(song.videoId, song.index);
-  };
+  const handleClick = useCallback(() => {
+    onPlay(song);
+  }, [onPlay, song]);
 
-  const status = song.selection?.status;
-  const StatusIcon = status ? statusConfig[status].icon : null;
+  const statusConfig = selectionStatus ? STATUS_CONFIG[selectionStatus] : null;
+  const StatusIcon = statusConfig?.icon;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.02, 0.5) }}
-      onClick={handlePlay}
-      className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${
+    <button
+      onClick={handleClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
         isActive
-          ? 'bg-accent-600/10 border border-accent-600/30'
-          : 'hover:bg-surface-800/60 border border-transparent'
+          ? 'bg-accent-500/10 border border-accent-500/30'
+          : 'hover:bg-surface-800/70 border border-transparent'
       }`}
+      aria-label={t('a11y.songCard', { title: song.title, artist: song.primaryArtist })}
+      aria-current={isActive ? 'true' : undefined}
     >
-      <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-surface-800">
-        <RowThumbnail
-          src={getThumbnailUrl(song.thumbnail, 'small')}
-          fallback={getFallbackThumbnail(song.videoId, 'small')}
-        />
-        {isActive && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <div className="flex gap-0.5">
-              <span className="w-0.5 h-3 bg-accent-400 animate-pulse rounded-full" />
-              <span className="w-0.5 h-4 bg-accent-400 animate-pulse rounded-full" style={{ animationDelay: '0.15s' }} />
-              <span className="w-0.5 h-2 bg-accent-400 animate-pulse rounded-full" style={{ animationDelay: '0.3s' }} />
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Thumbnail */}
+      <RowThumbnail
+        src={getThumbnailUrl(song.thumbnail, 'small')}
+        fallback={getFallbackThumbnail(song.videoId, 'small')}
+      />
 
+      {/* Song info */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${isActive ? 'text-accent-400' : 'text-surface-200'}`}>
-          {song.title}
+        <p className="text-sm font-medium text-surface-100 truncate">
+          <HighlightedText text={song.title} query={searchQuery} />
         </p>
-        <p className="text-xs text-surface-500 truncate">
-          {song.primaryArtist}{song.album ? ` · ${song.album}` : ''}
+        <p className="text-xs text-surface-400 truncate">
+          <HighlightedText text={song.primaryArtist} query={searchQuery} />
         </p>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        <span className="text-[10px] text-surface-600">{song.duration}</span>
-        {status && StatusIcon && (
-          <div className={`p-1 rounded-md ${statusConfig[status].bg}`}>
-            <StatusIcon size={12} className={statusConfig[status].color} />
-          </div>
-        )}
-      </div>
-    </motion.div>
+      {/* Now playing indicator */}
+      {isActive && (
+        <div className="flex items-end gap-0.5 h-4" aria-label={t('library.nowPlaying')}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-0.5 bg-accent-400 rounded-full animate-pulse"
+              style={{
+                height: `${8 + i * 4}px`,
+                animationDelay: `${i * 0.15}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Status icon */}
+      {StatusIcon && statusConfig && (
+        <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${statusConfig.bg}`}>
+          <StatusIcon size={12} className={statusConfig.color} />
+        </div>
+      )}
+
+      {/* Duration */}
+      <span className="text-xs text-surface-400 tabular-nums shrink-0">
+        {song.duration}
+      </span>
+    </button>
   );
-}
+});
 
 function RowThumbnail({ src, fallback }: { src: string; fallback: string }) {
   const [stage, setStage] = useState(0);
   const [visible, setVisible] = useState(false);
+  const [slotAcquired, setSlotAcquired] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  const imgSrc = stage === 0 ? (src || fallback) : stage === 1 ? fallback : '';
+  const releaseRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
-      { rootMargin: '200px' }
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: LAZY_LOAD_ROOT_MARGIN },
     );
     observer.observe(el);
+
     return () => observer.disconnect();
   }, []);
 
-  const advance = () => {
+  useEffect(() => {
+    if (!visible || slotAcquired) return;
+
+    let cancelled = false;
+    acquireSlot().then((release) => {
+      if (cancelled) {
+        release();
+        return;
+      }
+      releaseRef.current = release;
+      setSlotAcquired(true);
+    });
+
+    return () => { cancelled = true; };
+  }, [visible, slotAcquired]);
+
+  const advance = useCallback(() => {
     setStage((prev) => {
       if (prev === 0 && fallback && src !== fallback) return 1;
       return 2;
     });
-  };
+  }, [fallback, src]);
 
-  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  const handleLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
-    if (img.naturalWidth < 2 || img.naturalHeight < 2) advance();
-  };
+    if (img.naturalWidth < 2 || img.naturalHeight < 2) {
+      advance();
+    }
+    releaseRef.current?.();
+    releaseRef.current = null;
+  }, [advance]);
 
-  if (!imgSrc || stage === 2) {
-    return (
-      <div ref={ref} className="w-full h-full flex items-center justify-center text-surface-600">
-        <Play size={16} />
-      </div>
+  const handleError = useCallback(() => {
+    advance();
+    releaseRef.current?.();
+    releaseRef.current = null;
+  }, [advance]);
+
+  const imgSrc = stage === 0 ? (src || fallback) : stage === 1 ? fallback : '';
+
+  return (
+    <div ref={ref} className="w-10 h-10 rounded-lg overflow-hidden bg-surface-700 shrink-0">
+      {visible && slotAcquired && stage < 2 ? (
+        <img
+          src={imgSrc}
+          alt=""
+          className="w-full h-full object-cover"
+          onLoad={handleLoad}
+          onError={handleError}
+          loading="lazy"
+        />
+      ) : stage >= 2 ? (
+        <div className="w-full h-full flex items-center justify-center">
+          <Play size={14} className="text-surface-500" />
+        </div>
+      ) : (
+        <div className="w-full h-full bg-surface-700" />
+      )}
+    </div>
+  );
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+
+  const ranges = getSearchHighlightRanges(text, query);
+  if (ranges.length === 0) return <>{text}</>;
+
+  const parts: React.ReactNode[] = [];
+  let lastEnd = 0;
+
+  for (const range of ranges) {
+    if (range.start > lastEnd) {
+      parts.push(text.slice(lastEnd, range.start));
+    }
+    parts.push(
+      <mark key={range.start} className="bg-accent-500/30 text-inherit rounded-sm px-0.5">
+        {text.slice(range.start, range.end)}
+      </mark>,
     );
+    lastEnd = range.end;
   }
 
-  if (!visible) {
-    return (
-      <div ref={ref} className="w-full h-full bg-surface-700" />
-    );
+  if (lastEnd < text.length) {
+    parts.push(text.slice(lastEnd));
   }
 
-  return <img src={imgSrc} alt="" className="w-full h-full object-cover" onError={advance} onLoad={handleLoad} loading="lazy" />;
+  return <>{parts}</>;
 }

@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { WifiOff } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
-export default function OfflineBanner() {
-  const [offline, setOffline] = useState(!navigator.onLine);
+export function OfflineBanner() {
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const { t } = useTranslation();
 
   useEffect(() => {
-    const goOffline = () => setOffline(true);
-    const goOnline = () => setOffline(false);
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => setIsOffline(false);
+
     window.addEventListener('offline', goOffline);
     window.addEventListener('online', goOnline);
+
     return () => {
       window.removeEventListener('offline', goOffline);
       window.removeEventListener('online', goOnline);
@@ -18,16 +22,20 @@ export default function OfflineBanner() {
 
   return (
     <AnimatePresence>
-      {offline && (
+      {isOffline && (
         <motion.div
-          initial={{ y: -40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -40, opacity: 0 }}
-          className="fixed top-0 left-0 right-0 z-50 bg-rose-600/95 backdrop-blur-sm text-white text-xs font-medium text-center py-2 px-4 flex items-center justify-center gap-2"
+          className="fixed top-0 left-0 right-0 z-50 bg-skip/90 text-surface-950 text-center text-sm font-medium"
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+          initial={{ y: -50 }}
+          animate={{ y: 0 }}
+          exit={{ y: -50 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          role="alert"
         >
-          <WifiOff size={14} />
-          <span>No internet connection — playback and thumbnails require network</span>
+          <div className="flex items-center justify-center gap-2 py-2">
+            <WifiOff size={16} />
+            <span>{t('toast.offline')}</span>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

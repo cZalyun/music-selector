@@ -1,41 +1,37 @@
-/**
- * Bridge to call YouTube player methods directly from user gestures,
- * bypassing the React state → useEffect indirection that breaks
- * mobile autoplay policies.
- */
-
 let ytPlayer: YT.Player | null = null;
 let gestureVideoId: string | null = null;
-let gestureShouldPlay: boolean = false;
+let gestureShouldPlay = true;
+let preWarmed = false;
 
-export function registerPlayer(p: YT.Player) {
-  ytPlayer = p;
+export function registerPlayer(player: YT.Player): void {
+  ytPlayer = player;
 }
 
-export function unregisterPlayer() {
+export function unregisterPlayer(): void {
   ytPlayer = null;
 }
 
-/**
- * Call from a direct user gesture (click / swipe) to load a video.
- * Returns true if the player was available and the call was made.
- */
-export function loadVideoFromGesture(videoId: string, shouldPlay: boolean = true): boolean {
-  console.log('[playerBridge] loadVideoFromGesture called:', { videoId, shouldPlay });
-  
+export function getPlayer(): YT.Player | null {
+  return ytPlayer;
+}
+
+export function loadVideoFromGesture(
+  videoId: string,
+  shouldPlay: boolean = true,
+): boolean {
   if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
     try {
       ytPlayer.loadVideoById(videoId);
-      ytPlayer.playVideo(); // Force play to ensure audio context is active
+      if (shouldPlay) {
+        ytPlayer.playVideo();
+      }
       gestureVideoId = videoId;
       gestureShouldPlay = shouldPlay;
-      console.log('[playerBridge] Gesture stored:', { gestureVideoId, gestureShouldPlay });
       return true;
     } catch {
       return false;
     }
   }
-  console.log('[playerBridge] No player available');
   return false;
 }
 
@@ -43,19 +39,37 @@ export function isGestureLoadPending(): boolean {
   return gestureVideoId !== null;
 }
 
-/**
- * Check (and consume) whether a video was already loaded via a gesture.
- * MiniPlayer calls this to avoid a redundant loadVideoById from useEffect.
- */
-export function consumeGestureLoad(videoId: string): { consumed: boolean; shouldPlay: boolean } {
-  console.log('[playerBridge] consumeGestureLoad called:', { videoId, gestureVideoId, gestureShouldPlay });
+export function consumeGestureLoad(
+  videoId: string,
+): { consumed: boolean; shouldPlay: boolean } {
   if (gestureVideoId === videoId) {
-    gestureVideoId = null;
     const shouldPlay = gestureShouldPlay;
-    gestureShouldPlay = false;
-    console.log('[playerBridge] Gesture consumed:', { consumed: true, shouldPlay });
+    gestureVideoId = null;
     return { consumed: true, shouldPlay };
   }
-  console.log('[playerBridge] No gesture to consume');
-  return { consumed: false, shouldPlay: false };
+  return { consumed: false, shouldPlay: true };
+}
+
+export function clearGestureLoad(): void {
+  gestureVideoId = null;
+}
+
+export function isPreWarmed(): boolean {
+  return preWarmed;
+}
+
+export function setPreWarmed(): void {
+  preWarmed = true;
+}
+
+export function preWarmPlayer(): boolean {
+  if (preWarmed || !ytPlayer) return false;
+  try {
+    ytPlayer.setVolume(0);
+    ytPlayer.cueVideoById('dQw4w9WgXcQ');
+    preWarmed = true;
+    return true;
+  } catch {
+    return false;
+  }
 }

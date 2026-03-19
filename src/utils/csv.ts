@@ -1,123 +1,118 @@
 import Papa from 'papaparse';
-import type { Song } from '../types';
+import type { Song } from '@/types';
+import { CSV_MAX_ERRORS_SHOWN } from '@/constants';
 
-const REQUIRED_COLUMNS = [
-  'index', 'title', 'primaryArtist', 'videoId',
-] as const;
+const REQUIRED_COLUMNS = ['index', 'title', 'primaryArtist', 'videoId'];
 
-export function parseCSV(file: File): Promise<{ songs: Song[]; errors: string[] }> {
+function mapRow(row: Record<string, string>): Song {
+  return {
+    index: parseInt(row['index'] ?? '0', 10),
+    title: row['title'] ?? '',
+    titleNormalized: row['titleNormalized'] ?? '',
+    primaryArtist: row['primaryArtist'] ?? '',
+    allArtists: row['allArtists'] ?? '',
+    artistCount: parseInt(row['artistCount'] ?? '1', 10),
+    album: row['album'] ?? '',
+    duration: row['duration'] ?? '',
+    durationSeconds: parseInt(row['durationSeconds'] ?? '0', 10),
+    videoId: row['videoId'] ?? '',
+    url: row['url'] ?? '',
+    youtubeWatchUrl: row['youtubeWatchUrl'] ?? '',
+    youtubeMusicUrl: row['youtubeMusicUrl'] ?? '',
+    thumbnail: row['thumbnail'] ?? '',
+    isExplicit: row['isExplicit'] === 'true',
+  };
+}
+
+export function parseCSV(
+  file: File,
+): Promise<{ songs: Song[]; errors: string[] }> {
   return new Promise((resolve) => {
-    const errors: string[] = [];
-
-    Papa.parse(file, {
+    Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
-      complete(results) {
+      complete: (results) => {
+        const errors: string[] = [];
+
+        if (results.meta.fields) {
+          const missing = REQUIRED_COLUMNS.filter(
+            (col) => !results.meta.fields!.includes(col),
+          );
+          if (missing.length > 0) {
+            resolve({ songs: [], errors: [`Missing required columns: ${missing.join(', ')}`] });
+            return;
+          }
+        }
+
         if (results.errors.length > 0) {
-          errors.push(...results.errors.slice(0, 5).map((e) => `Row ${e.row}: ${e.message}`));
+          const shown = results.errors.slice(0, CSV_MAX_ERRORS_SHOWN);
+          errors.push(...shown.map((e) => `Row ${e.row}: ${e.message}`));
+          const remaining = results.errors.length - CSV_MAX_ERRORS_SHOWN;
+          if (remaining > 0) {
+            errors.push(`...and ${remaining} more errors`);
+          }
         }
 
-        const headers = results.meta.fields ?? [];
-        const missing = REQUIRED_COLUMNS.filter((c) => !headers.includes(c));
-        if (missing.length > 0) {
-          errors.push(`Missing required columns: ${missing.join(', ')}`);
-          resolve({ songs: [], errors });
-          return;
-        }
-
-        const songs: Song[] = (results.data as Record<string, string>[])
-          .map((row) => ({
-            index: parseInt(row.index, 10) || 0,
-            title: (row.title ?? '').trim(),
-            titleNormalized: (row.titleNormalized ?? row.title ?? '').trim().toLowerCase(),
-            primaryArtist: (row.primaryArtist ?? '').trim(),
-            allArtists: (row.allArtists ?? row.primaryArtist ?? '').trim(),
-            artistCount: parseInt(row.artistCount, 10) || 1,
-            album: (row.album ?? '').trim(),
-            duration: (row.duration ?? '').trim(),
-            durationSeconds: parseInt(row.durationSeconds, 10) || 0,
-            videoId: (row.videoId ?? '').trim(),
-            url: (row.url ?? '').trim(),
-            youtubeWatchUrl: (row.youtubeWatchUrl ?? '').trim(),
-            youtubeMusicUrl: (row.youtubeMusicUrl ?? '').trim(),
-            thumbnail: (row.thumbnail ?? '').trim(),
-            isExplicit: row.isExplicit === 'true',
-          }))
-          .filter((s) => s.title && s.videoId);
-
+        const songs = results.data.map(mapRow);
         resolve({ songs, errors });
       },
-      error(err) {
-        errors.push(`Parse error: ${err.message}`);
-        resolve({ songs: [], errors });
+      error: (error: Error) => {
+        resolve({ songs: [], errors: [error.message] });
       },
     });
   });
 }
 
-export function parseCSVString(csvText: string): { songs: Song[]; errors: string[] } {
+export function parseCSVString(
+  csvText: string,
+): { songs: Song[]; errors: string[] } {
+  const results = Papa.parse<Record<string, string>>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
   const errors: string[] = [];
-  const results = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+
+  if (results.meta.fields) {
+    const missing = REQUIRED_COLUMNS.filter(
+      (col) => !results.meta.fields!.includes(col),
+    );
+    if (missing.length > 0) {
+      return { songs: [], errors: [`Missing required columns: ${missing.join(', ')}`] };
+    }
+  }
 
   if (results.errors.length > 0) {
-    errors.push(...results.errors.slice(0, 5).map((e) => `Row ${e.row}: ${e.message}`));
+    const shown = results.errors.slice(0, CSV_MAX_ERRORS_SHOWN);
+    errors.push(...shown.map((e) => `Row ${e.row}: ${e.message}`));
+    const remaining = results.errors.length - CSV_MAX_ERRORS_SHOWN;
+    if (remaining > 0) {
+      errors.push(`...and ${remaining} more errors`);
+    }
   }
 
-  const headers = results.meta.fields ?? [];
-  const missing = REQUIRED_COLUMNS.filter((c) => !headers.includes(c));
-  if (missing.length > 0) {
-    errors.push(`Missing required columns: ${missing.join(', ')}`);
-    return { songs: [], errors };
-  }
-
-  const songs: Song[] = (results.data as Record<string, string>[])
-    .map((row) => ({
-      index: parseInt(row.index, 10) || 0,
-      title: (row.title ?? '').trim(),
-      titleNormalized: (row.titleNormalized ?? row.title ?? '').trim().toLowerCase(),
-      primaryArtist: (row.primaryArtist ?? '').trim(),
-      allArtists: (row.allArtists ?? row.primaryArtist ?? '').trim(),
-      artistCount: parseInt(row.artistCount, 10) || 1,
-      album: (row.album ?? '').trim(),
-      duration: (row.duration ?? '').trim(),
-      durationSeconds: parseInt(row.durationSeconds, 10) || 0,
-      videoId: (row.videoId ?? '').trim(),
-      url: (row.url ?? '').trim(),
-      youtubeWatchUrl: (row.youtubeWatchUrl ?? '').trim(),
-      youtubeMusicUrl: (row.youtubeMusicUrl ?? '').trim(),
-      thumbnail: (row.thumbnail ?? '').trim(),
-      isExplicit: row.isExplicit === 'true',
-    }))
-    .filter((s) => s.title && s.videoId);
-
+  const songs = results.data.map(mapRow);
   return { songs, errors };
 }
 
 export function exportToCSV(songs: Song[], filename: string): void {
-  const headers = [
-    'index', 'title', 'titleNormalized', 'primaryArtist', 'allArtists',
-    'artistCount', 'album', 'duration', 'durationSeconds', 'videoId',
-    'url', 'youtubeWatchUrl', 'youtubeMusicUrl', 'thumbnail', 'isExplicit',
-  ];
-
-  const csvContent = Papa.unparse({
-    fields: headers,
-    data: songs.map((s) => headers.map((h) => String(s[h as keyof Song] ?? ''))),
-  });
-
-  downloadFile(csvContent, filename, 'text/csv;charset=utf-8');
+  const csv = Papa.unparse(songs);
+  downloadFile(csv, filename, 'text/csv;charset=utf-8;');
 }
 
 export function exportJSON(data: unknown, filename: string): void {
-  downloadFile(JSON.stringify(data, null, 2), filename, 'application/json');
+  const json = JSON.stringify(data, null, 2);
+  downloadFile(json, filename, 'application/json');
 }
 
 function downloadFile(content: string, filename: string, type: string): void {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

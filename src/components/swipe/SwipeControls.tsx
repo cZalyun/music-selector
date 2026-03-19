@@ -1,59 +1,111 @@
 import { motion } from 'framer-motion';
-import { ThumbsDown, SkipForward, Heart, Undo2, Play, Pause } from 'lucide-react';
+import { Heart, ThumbsDown, SkipForward, Play, Pause, Undo2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface SwipeControlsProps {
+  onLike: () => void;
   onDislike: () => void;
   onSkip: () => void;
-  onLike: () => void;
+  onPlayPause: () => void;
   onUndo: () => void;
-  onPlay: () => void;
+  isPlaying: boolean;
   canUndo: boolean;
-  isPlaying?: boolean;
 }
 
-export default function SwipeControls({ onDislike, onSkip, onLike, onUndo, onPlay, canUndo, isPlaying }: SwipeControlsProps) {
-  return (
-    <div className="flex items-center justify-center gap-4 px-4 py-2">
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={onUndo}
-        disabled={!canUndo}
-        className="p-2.5 rounded-full bg-surface-800 text-surface-400 hover:text-surface-200 disabled:opacity-30 transition-colors"
-      >
-        <Undo2 size={18} />
-      </motion.button>
+export function SwipeControls({
+  onLike,
+  onDislike,
+  onSkip,
+  onPlayPause,
+  onUndo,
+  isPlaying,
+  canUndo,
+}: SwipeControlsProps) {
+  const { t } = useTranslation();
 
-      <motion.button
-        whileTap={{ scale: 0.85 }}
+  return (
+    <div className="flex items-center justify-center gap-3 py-3">
+      <ControlButton
         onClick={onDislike}
-        className="p-4 rounded-full bg-rose-950/60 border border-rose-800/50 text-rose-400 hover:bg-rose-900/60 transition-colors"
+        color="bg-dislike/10 text-dislike hover:bg-dislike/20"
+        label={t('a11y.dislikeButton')}
+        size="lg"
       >
         <ThumbsDown size={24} />
-      </motion.button>
+      </ControlButton>
 
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={onPlay}
-        className="p-3 rounded-full bg-surface-800 text-accent-400 hover:bg-surface-700 transition-colors"
+      <ControlButton
+        onClick={onSkip}
+        color="bg-skip/10 text-skip hover:bg-skip/20"
+        label={t('a11y.skipButton')}
+        size="md"
       >
-        {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-      </motion.button>
+        <SkipForward size={20} />
+      </ControlButton>
 
-      <motion.button
-        whileTap={{ scale: 0.85 }}
+      <ControlButton
         onClick={onLike}
-        className="p-4 rounded-full bg-emerald-950/60 border border-emerald-800/50 text-emerald-400 hover:bg-emerald-900/60 transition-colors"
+        color="bg-like/10 text-like hover:bg-like/20"
+        label={t('a11y.likeButton')}
+        size="lg"
       >
         <Heart size={24} />
-      </motion.button>
+      </ControlButton>
 
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={onSkip}
-        className="p-2.5 rounded-full bg-surface-800 text-amber-400 hover:bg-surface-700 transition-colors"
+      <ControlButton
+        onClick={onPlayPause}
+        color="bg-surface-700 text-surface-200 hover:bg-surface-600"
+        label={t('a11y.playPauseButton')}
+        size="sm"
       >
-        <SkipForward size={18} />
-      </motion.button>
+        {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+      </ControlButton>
+
+      <ControlButton
+        onClick={onUndo}
+        color="bg-surface-700 text-surface-200 hover:bg-surface-600"
+        label={t('a11y.undoButton')}
+        size="sm"
+        disabled={!canUndo}
+      >
+        <Undo2 size={16} />
+      </ControlButton>
     </div>
+  );
+}
+
+function ControlButton({
+  onClick,
+  color,
+  label,
+  size,
+  disabled = false,
+  children,
+}: {
+  onClick: () => void;
+  color: string;
+  label: string;
+  size: 'sm' | 'md' | 'lg';
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  const sizeClass = {
+    sm: 'w-10 h-10',
+    md: 'w-12 h-12',
+    lg: 'w-14 h-14',
+  }[size];
+
+  return (
+    <motion.button
+      onClick={onClick}
+      disabled={disabled}
+      whileTap={{ scale: 0.9 }}
+      className={`${sizeClass} rounded-full flex items-center justify-center transition-colors ${color} ${
+        disabled ? 'opacity-30 cursor-not-allowed' : ''
+      }`}
+      aria-label={label}
+    >
+      {children}
+    </motion.button>
   );
 }

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* Surface colors (dark theme) */
   --color-surface-50: #f8fafc;
   --color-surface-100: #f1f5f9;
   --color-surface-200: #e2e8f0;
@@ -12,20 +13,33 @@
   --color-surface-800: #1e293b;
   --color-surface-900: #0f172a;
   --color-surface-950: #020617;
-  --color-accent-400: #c084fc;
-  --color-accent-500: #a855f7;
-  --color-accent-600: #9333ea;
-  --color-like: #10b981;
+
+  /* Accent */
+  --color-accent-400: #818cf8;
+  --color-accent-500: #6366f1;
+  --color-accent-600: #4f46e5;
+
+  /* Status colors */
+  --color-like: #22c55e;
+  --color-like-dark: #166534;
   --color-dislike: #f43f5e;
+  --color-dislike-dark: #9f1239;
   --color-skip: #f59e0b;
+  --color-skip-dark: #92400e;
 }
 
+/* Base reset */
 * {
   -webkit-tap-highlight-color: transparent;
 }
 
+*:focus-visible {
+  outline: 2px solid var(--color-accent-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 html {
-  background-color: var(--color-surface-950);
   color-scheme: dark;
 }
 
@@ -34,8 +48,10 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior: none;
+  background-color: var(--color-surface-950);
+  color: var(--color-surface-100);
   min-height: 100dvh;
+  overscroll-behavior: none;
 }
 
 #root {
@@ -48,31 +64,41 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--color-surface-600);
   border-radius: 3px;
 }
 
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-surface-600);
-  outline: none;
+/* Light theme — invert surface scale so all components adapt automatically */
+html.light {
+  color-scheme: light;
+  --color-surface-50: #020617;
+  --color-surface-100: #0f172a;
+  --color-surface-200: #1e293b;
+  --color-surface-300: #334155;
+  --color-surface-400: #475569;
+  --color-surface-500: #64748b;
+  --color-surface-600: #cbd5e1;
+  --color-surface-700: #e2e8f0;
+  --color-surface-800: #f1f5f9;
+  --color-surface-900: #f8fafc;
+  --color-surface-950: #ffffff;
 }
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-accent-500);
-  cursor: pointer;
+
+html.light body {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
 }
