@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Music,
-  Play,
   HelpCircle,
   X,
   Copy,
@@ -93,7 +92,6 @@ export default function HomePage() {
         >
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-surface-100">{t('home.resume.title')}</h2>
-            <Play size={16} className="text-accent-400" />
           </div>
           {fileName && (
             <p className="text-xs text-surface-400">{t('home.resume.file', { name: fileName })}</p>
@@ -126,7 +124,7 @@ export default function HomePage() {
         ) : (
           <ListMusic size={16} />
         )}
-        {t('home.dropzone.loadSample', { count: 1148 })}
+        {t('home.dropzone.loadSample', { count: 1152 })}
       </button>
 
       {/* Actions row */}

@@ -1,77 +1,117 @@
 # Music Selector
 
-A mobile-first Progressive Web App for reviewing, curating, and managing your YouTube Music liked songs library using a Tinder-style swipe interface.
+![ TypeScript ](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)
+![ React ](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![ Vite ](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
+![ PWA ](https://img.shields.io/badge/PWA-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
+![ License ](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![ Build ](https://img.shields.io/github/actions/workflow/status/czaunpeterbence/music-selector/deploy?style=flat-square&logo=github&label=build)
 
-## Features
+> A mobile-first Progressive Web App for reviewing your YouTube Music liked songs with a Tinder-style swipe interface.
 
-- **Swipe Review** — Right to like, left to dislike, up to skip. Keyboard shortcuts: `→` `←` `↑` `Space` `Z`
-- **Music Player** — Embedded YouTube player with seek, volume, loop, auto-continue, shuffle, and lock screen controls
-- **Library** — Search, filter, sort, group your songs. Virtualized list for performance
-- **Stats** — Review progress, top artists/albums charts, export liked songs as CSV
-- **PWA** — Installable, works offline, background updates
-- **Accessibility** — WCAG 2.2 AA: keyboard nav, ARIA labels, focus-visible, skip-to-content, screen reader support
-- **i18n** — Internationalization-ready with `react-i18next`
-- **Cross-platform** — iOS Safari, Android Chrome, macOS, Windows, with safe-area insets and platform-specific optimizations
+## 🎯 How to Use
 
-## Tech Stack
+### 1. Export Your YouTube Music Library
 
-- **React 19** + TypeScript
-- **Vite** with PWA plugin (Workbox service worker)
-- **TailwindCSS v4** with custom dark/light theme
-- **Zustand** with IndexedDB persistence (`idb-keyval`)
-- **Framer Motion** for animations
-- **PapaParse** for CSV parsing
-- **@tanstack/react-virtual** for virtualized lists
-- **Vitest** for unit testing
+**Bookmarklet Method (Recommended):**
+- Copy the bookmarklet from the app's "How to Use" modal
+- Create a new bookmark in your browser with this code
+- Go to YouTube Music → Library → Liked songs
+- Click the bookmarklet to automatically export as CSV
 
-## Getting Started
+**Manual Method:**
+- Go to YouTube Music → Library → Liked songs
+- Scroll to load all your liked songs
+- Use browser dev tools to extract data (see bookmarklet code for reference)
+
+### 2. Upload & Start Swiping
+
+1. Upload your CSV file on the home page
+2. Start swiping: Right to like 👍, left to dislike 👎, up to skip ⏭️
+3. Use keyboard shortcuts: `→` `←` `↑` `Space` `Z`
+
+### 3. Review & Export
+
+- Check your progress in the Stats page
+- Export your curated liked songs as CSV
+- Import back to YouTube Music or other services
+
+### 4. Install as PWA
+
+**iOS (iPhone/iPad):**
+- Safari: Share → Add to Home Screen
+- Chrome/Edge: Share → Add to Home Screen (iOS 17+)
+
+**Android:**
+- Chrome/Brave/Edge: Menu → Add to Home Screen
+- Samsung Internet: Install icon in URL bar
+
+**Desktop:**
+- **macOS:** 
+  - Chrome/Edge/Brave: Install icon in URL bar → Add to Dock
+  - Safari 17+: File → Add to Dock
+- **Windows:** Edge/Chrome/Brave: Install icon in URL bar → Add to Desktop/Taskbar
+- **Linux:** Chrome/Edge/Brave: Install icon in URL bar
+
+**Benefits:**
+- Native app experience
+- Instant updates
+
+
+## ✨ Features
+
+- 🎯 **Swipe Review** — Tinder-style interface for quick curation
+- 🎵 **Music Player** — YouTube player with lock screen controls
+- 📚 **Library** — Search, filter, sort with virtualized lists
+- 📊 **Stats** — Progress tracking, export to CSV
+- 📱 **PWA** — Installable, works offline
+- ♿ **Accessibility** — WCAG 2.2 AA compliant
+- 🌍 **i18n** — Multi-language ready
+
+## 🚀 Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Scripts
+## 🛠️ Tech Stack
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start dev server |
-| `npm run build` | TypeScript check + production build |
-| `npm run preview` | Preview production build |
-| `npm test` | Run tests in watch mode |
-| `npm run test:run` | Run tests once |
-| `npm run lint` | ESLint check |
+- **React 19** + TypeScript
+- **Vite** + PWA (Workbox)
+- **TailwindCSS v4** with custom themes
+- **Zustand** + IndexedDB persistence
+- **Framer Motion** animations
+- **Vitest** testing
 
-## Project Structure
+## 📱 Platform Support
+
+| Platform | Install | Audio | Gestures | Lock Screen |
+|----------|---------|-------|----------|-------------|
+| iOS Safari | ✅ Manual | ✅ | ✅ | ✅ iOS 15+ |
+| Android Chrome | ✅ Native | ✅ | ✅ + haptics | ✅ |
+| Desktop | ✅ Native | ✅ | Mouse drag | ✅ |
+
+## 🧪 Testing
+
+```bash
+npm test              # Watch mode
+npm run test:run     # Single run
+npm run lint         # ESLint
+```
+
+## 📁 Project Structure
 
 ```
 src/
-├── components/
-│   ├── layout/        # Layout, BottomNav, ErrorBoundary
-│   ├── swipe/         # CardStack, SwipeCard, SwipeControls
-│   ├── player/        # MiniPlayer (YouTube IFrame)
-│   ├── library/       # SearchBar, FilterChips, SongList, SongRow
-│   ├── stats/         # StatsDashboard, ExportPanel
-│   ├── upload/        # DropZone (CSV import)
-│   └── ui/            # Toast, ConfirmModal, InstallPrompt, SkipToContent
-├── hooks/             # usePWAInstall, useTheme, useBackButton
-├── i18n/              # i18next config + locale files
-├── pages/             # HomePage, SwipePage, LibraryPage, StatsPage
-├── store/             # Zustand stores (IndexedDB-backed)
-├── types/             # TypeScript types
-├── utils/             # csv, playerBridge, search, grouping, thumbnail, imageQueue
-└── __tests__/         # Unit tests
+├── components/       # UI components
+├── hooks/           # Custom React hooks
+├── pages/           # Route pages
+├── store/           # Zustand stores (IndexedDB)
+├── utils/           # Utility functions
+└── __tests__/       # Unit tests
 ```
 
-## Platform Support
-
-| Platform | Install | Audio | Gestures | Lock Screen |
-|---|---|---|---|---|
-| iOS Safari | Manual guide | ✅ | ✅ | ✅ iOS 15+ |
-| Android Chrome | Native prompt | ✅ | ✅ + haptics | ✅ |
-| macOS Safari/Chrome | Native prompt | ✅ | ✅ | ✅ |
-| Windows Chrome/Edge | Native prompt | ✅ + volume | Mouse drag | ✅ |
-
-## License
+## 📄 License
 
 MIT
