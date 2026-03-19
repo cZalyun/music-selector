@@ -28,7 +28,7 @@ export function SongList({ songs, groups, activeSongIndex, searchQuery, onPlay }
 
   if (groups) {
     return (
-      <div className="space-y-2">
+      <div className="h-full overflow-y-auto space-y-2">
         {groups.map((group) => (
           <CollapsibleGroup
             key={group.label}
@@ -75,8 +75,7 @@ function VirtualizedList({
   return (
     <div
       ref={parentRef}
-      className="flex-1 overflow-y-auto"
-      style={{ maxHeight: 'calc(100dvh - 20rem)' }}
+      className="h-full overflow-y-auto"
     >
       <div
         style={{

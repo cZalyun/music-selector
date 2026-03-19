@@ -34,7 +34,7 @@ export function FilterChips({
   return (
     <div className="space-y-2">
       {/* Tab filters */}
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
         {TABS.map((tabKey) => {
           const count = counts[tabKey];
           const isActive = tab === tabKey;

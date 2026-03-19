@@ -3,11 +3,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Download, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { usePlayerStore } from '@/store/playerStore';
 
 export function InstallPrompt() {
   const { canInstall, isIOS, install } = usePWAInstall();
   const [dismissed, setDismissed] = useState(false);
   const { t } = useTranslation();
+  const hasPlayer = usePlayerStore((s) => s.currentVideoId !== null);
 
   if (!canInstall || dismissed || isIOS) return null;
 
@@ -15,7 +17,7 @@ export function InstallPrompt() {
     <AnimatePresence>
       <motion.div
         className="fixed z-40 left-4 right-4 bg-surface-800 border border-surface-700 rounded-2xl p-4 shadow-2xl flex items-center gap-3"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+        style={{ bottom: hasPlayer ? 'calc(11.5rem + env(safe-area-inset-bottom, 0px))' : 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}

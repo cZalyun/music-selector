@@ -4,6 +4,7 @@
     "description": "Review and curate your YouTube Music liked songs"
   },
   "nav": {
+    "main": "Main navigation",
     "upload": "Upload",
     "swipe": "Swipe",
     "library": "Library",
@@ -143,6 +144,9 @@
     },
     "completion": "Review Completion",
     "distribution": "Review Distribution",
+    "distributionLiked": "Liked {{percent}}%",
+    "distributionDisliked": "Disliked {{percent}}%",
+    "distributionSkipped": "Skipped {{percent}}%",
     "topArtists": "Top 5 Liked Artists",
     "topAlbums": "Top 5 Liked Albums",
     "estimatedTime": "~{{minutes}} min remaining",
@@ -205,6 +209,8 @@
     "dismiss": "Dismiss"
   },
   "errors": {
+    "csvFileRequired": "Please upload a CSV file",
+    "noSongsFound": "No songs found in file",
     "csvMissingColumns": "CSV is missing required columns: {{columns}}",
     "csvParseError": "Failed to parse CSV: {{error}}",
     "csvTruncatedErrors": "...and {{count}} more errors",

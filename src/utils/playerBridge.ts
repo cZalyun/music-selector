@@ -21,9 +21,10 @@ export function loadVideoFromGesture(
 ): boolean {
   if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
     try {
-      ytPlayer.loadVideoById(videoId);
       if (shouldPlay) {
-        ytPlayer.playVideo();
+        ytPlayer.loadVideoById(videoId);
+      } else {
+        ytPlayer.cueVideoById(videoId);
       }
       gestureVideoId = videoId;
       gestureShouldPlay = shouldPlay;

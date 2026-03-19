@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, Music } from 'lucide-react';
@@ -9,7 +9,7 @@ import { useSelectionStore } from '@/store/selectionStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useToastStore } from '@/store/toastStore';
-import { loadVideoFromGesture } from '@/utils/playerBridge';
+import { loadVideoFromGesture, getPlayer } from '@/utils/playerBridge';
 import { HAPTIC_LIKE, HAPTIC_DISLIKE, HAPTIC_SKIP } from '@/constants';
 import type { SelectionStatus } from '@/types';
 
@@ -43,10 +43,20 @@ export function CardStack() {
   const total = songs.length;
   const percent = total > 0 ? Math.round((reviewed / total) * 100) : 0;
 
-  // Load first song into player on mount
+  // Load first song into player on mount (only once per queue head)
+  const initialLoadDone = useRef(false);
+  const autoplayRef = useRef(autoplay);
+  autoplayRef.current = autoplay;
+
   useEffect(() => {
-    if (currentSong && !currentVideoId) {
-      setCurrentSong(currentSong.videoId, currentSong.index, false);
+    // Reset when the top card changes (e.g. after a swipe)
+    initialLoadDone.current = false;
+  }, [currentSong?.index]);
+
+  useEffect(() => {
+    if (currentSong && !currentVideoId && !initialLoadDone.current) {
+      initialLoadDone.current = true;
+      setCurrentSong(currentSong.videoId, currentSong.index, autoplayRef.current);
     }
   }, [currentSong, currentVideoId, setCurrentSong]);
 
@@ -99,14 +109,26 @@ export function CardStack() {
 
   const handlePlayPause = useCallback(() => {
     if (!currentSong) return;
-    const { isPlaying: playing, setPlaying } = usePlayerStore.getState();
+    const { isPlaying: playing, setPlaying, currentVideoId: vid } = usePlayerStore.getState();
+    const ytPlayer = getPlayer();
     if (playing) {
+      if (ytPlayer) {
+        try { ytPlayer.pauseVideo(); } catch { /* ignore */ }
+      }
       setPlaying(false);
     } else {
-      loadVideoFromGesture(currentSong.videoId, true);
-      setPlaying(true);
+      if (!vid) {
+        // Player was stopped — re-set currentVideoId so MiniPlayer reappears
+        setCurrentSong(currentSong.videoId, currentSong.index, true);
+        if (ytPlayer) {
+          try { ytPlayer.loadVideoById(currentSong.videoId); } catch { /* ignore */ }
+        }
+      } else if (ytPlayer) {
+        try { ytPlayer.playVideo(); } catch { /* ignore */ }
+        setPlaying(true);
+      }
     }
-  }, [currentSong]);
+  }, [currentSong, setCurrentSong]);
 
   // Keyboard controls
   useEffect(() => {

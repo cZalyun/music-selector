@@ -19,7 +19,7 @@ export default function SwipePage() {
 
   return (
     <div
-      className="max-w-lg mx-auto w-full"
+      className="max-w-lg mx-auto w-full transition-[height] duration-200"
       style={{
         height: hasPlayer
           ? 'calc(100dvh - 10.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))'

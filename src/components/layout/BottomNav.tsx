@@ -17,7 +17,7 @@ export function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-40 bg-surface-900/95 backdrop-blur-sm border-t border-surface-700"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       role="navigation"
-      aria-label={t('nav.upload')}
+      aria-label={t('nav.main')}
     >
       <div className="max-w-lg mx-auto flex justify-around items-center h-16">
         {NAV_ITEMS.map(({ to, icon: Icon, labelKey }) => (

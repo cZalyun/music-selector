@@ -114,9 +114,9 @@ export function StatsDashboard({ songs, selections }: StatsDashboardProps) {
             )}
           </div>
           <div className="flex justify-between mt-2 text-[10px]">
-            <span className="text-like">Liked {Math.round((stats.liked / stats.reviewed) * 100)}%</span>
-            <span className="text-dislike">Disliked {Math.round((stats.disliked / stats.reviewed) * 100)}%</span>
-            <span className="text-skip">Skipped {Math.round((stats.skipped / stats.reviewed) * 100)}%</span>
+            <span className="text-like">{t('stats.distributionLiked', { percent: Math.round((stats.liked / stats.reviewed) * 100) })}</span>
+            <span className="text-dislike">{t('stats.distributionDisliked', { percent: Math.round((stats.disliked / stats.reviewed) * 100) })}</span>
+            <span className="text-skip">{t('stats.distributionSkipped', { percent: Math.round((stats.skipped / stats.reviewed) * 100) })}</span>
           </div>
         </div>
       )}

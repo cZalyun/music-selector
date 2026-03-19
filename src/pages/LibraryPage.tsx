@@ -8,6 +8,7 @@ import { useSongStore } from '@/store/songStore';
 import { useSelectionStore } from '@/store/selectionStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useSettingsStore } from '@/store/settingsStore';
+
 import { filterSongs, filterByTab } from '@/utils/search';
 import { groupSongs } from '@/utils/grouping';
 import { loadVideoFromGesture } from '@/utils/playerBridge';
@@ -20,6 +21,7 @@ export default function LibraryPage() {
   const selections = useSelectionStore((s) => s.selections);
   const currentSongIndex = usePlayerStore((s) => s.currentSongIndex);
   const setCurrentSong = usePlayerStore((s) => s.setCurrentSong);
+  const hasPlayer = usePlayerStore((s) => s.currentVideoId !== null);
   const hideExplicit = useSettingsStore((s) => s.hideExplicit);
 
   const [search, setSearch] = useState('');
@@ -77,7 +79,14 @@ export default function LibraryPage() {
   }, [songs, selections, handlePlay]);
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4 flex flex-col h-[calc(100dvh-4rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))]">
+    <div
+      className="max-w-lg mx-auto px-4 py-4 flex flex-col transition-[height] duration-200"
+      style={{
+        height: hasPlayer
+          ? 'calc(100dvh - 10.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))'
+          : 'calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+      }}
+    >
       {/* Search */}
       <SearchBar value={search} onChange={setSearch} />
 
@@ -122,7 +131,7 @@ export default function LibraryPage() {
       </div>
 
       {/* Song list */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0">
         <SongList
           songs={filtered}
           groups={groups}

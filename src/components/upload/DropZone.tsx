@@ -22,7 +22,7 @@ export function DropZone() {
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.endsWith('.csv')) {
-      setErrors(['Please upload a CSV file']);
+      setErrors([t('errors.csvFileRequired')]);
       return;
     }
 
@@ -39,7 +39,7 @@ export function DropZone() {
     }
 
     if (songs.length === 0) {
-      setErrors(['No songs found in file']);
+      setErrors([t('errors.noSongsFound')]);
       setProcessing(false);
       return;
     }

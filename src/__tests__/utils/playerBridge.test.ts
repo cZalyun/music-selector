@@ -72,6 +72,30 @@ describe('playerBridge', () => {
       loadVideoFromGesture('video123');
       expect(isGestureLoadPending()).toBe(true);
     });
+
+    it('calls loadVideoById when shouldPlay is true', () => {
+      const player = createMockPlayer();
+      const loadSpy = { called: false };
+      const cueSpy = { called: false };
+      player.loadVideoById = (() => { loadSpy.called = true; }) as unknown as typeof player.loadVideoById;
+      player.cueVideoById = (() => { cueSpy.called = true; }) as unknown as typeof player.cueVideoById;
+      registerPlayer(player);
+      loadVideoFromGesture('video123', true);
+      expect(loadSpy.called).toBe(true);
+      expect(cueSpy.called).toBe(false);
+    });
+
+    it('calls cueVideoById when shouldPlay is false', () => {
+      const player = createMockPlayer();
+      const loadSpy = { called: false };
+      const cueSpy = { called: false };
+      player.loadVideoById = (() => { loadSpy.called = true; }) as unknown as typeof player.loadVideoById;
+      player.cueVideoById = (() => { cueSpy.called = true; }) as unknown as typeof player.cueVideoById;
+      registerPlayer(player);
+      loadVideoFromGesture('video123', false);
+      expect(loadSpy.called).toBe(false);
+      expect(cueSpy.called).toBe(true);
+    });
   });
 
   describe('consumeGestureLoad', () => {

@@ -11,13 +11,14 @@ import {
   Volume2,
   VolumeX,
   ExternalLink,
+  Music,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePlayerStore } from '@/store/playerStore';
 import { useSongStore } from '@/store/songStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useToastStore } from '@/store/toastStore';
-import { getThumbnailUrl } from '@/utils/thumbnail';
+import { getThumbnailUrl, getFallbackThumbnail } from '@/utils/thumbnail';
 import { formatTime } from '@/utils/format';
 import {
   registerPlayer,
@@ -92,6 +93,17 @@ export function MiniPlayer() {
   const loadingRef = useRef(false);
   const autoplayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Refs to hold current settings so YT event callbacks always read fresh values
+  const autoContinueRef = useRef(autoContinue);
+  autoContinueRef.current = autoContinue;
+  const loopModeRef = useRef(loopMode);
+  loopModeRef.current = loopMode;
+  const autoplayRef = useRef(autoplay);
+  autoplayRef.current = autoplay;
+  const isSwipePageRef = useRef(isSwipePage);
+  isSwipePageRef.current = isSwipePage;
+  const playAdjacentRef = useRef<(direction: 1 | -1) => void>(() => {});
+
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [seeking, setSeeking] = useState(false);
@@ -160,7 +172,7 @@ export function MiniPlayer() {
     return () => document.removeEventListener('visibilitychange', handler);
   }, []);
 
-  const playAdjacentSong = useCallback((direction: 1 | -1) => {
+  const playAdjacentSong = useCallback((direction: 1 | -1): void => {
     if (currentSongIndex === null || songs.length === 0) return;
 
     let nextSong;
@@ -182,6 +194,9 @@ export function MiniPlayer() {
     }
   }, [currentSongIndex, songs, shufflePlayback, setCurrentSong]);
 
+  // Keep ref in sync so stale YT event closures read fresh function
+  playAdjacentRef.current = playAdjacentSong;
+
   // Initialize/update YT player
   useEffect(() => {
     if (!currentVideoId) return;
@@ -201,9 +216,10 @@ export function MiniPlayer() {
 
       if (playerRef.current) {
         try {
-          playerRef.current.loadVideoById(currentVideoId);
-          if (autoplay) {
-            playerRef.current.playVideo();
+          if (autoplayRef.current) {
+            playerRef.current.loadVideoById(currentVideoId);
+          } else {
+            playerRef.current.cueVideoById(currentVideoId);
           }
         } catch { /* ignore */ }
         loadingRef.current = false;
@@ -215,7 +231,7 @@ export function MiniPlayer() {
         width: '1',
         videoId: currentVideoId,
         playerVars: {
-          autoplay: autoplay ? 1 : 0,
+          autoplay: autoplayRef.current ? 1 : 0,
           controls: 0,
           disablekb: 1,
           modestbranding: 1,
@@ -328,18 +344,30 @@ export function MiniPlayer() {
     } else {
       addToast(t('player.videoError'), 'error');
     }
-    // Auto-advance on error
-    if (autoContinue) {
-      setTimeout(() => playAdjacentSong(1), 500);
+    // On swipe page: never auto-advance, just stop
+    if (isSwipePageRef.current) {
+      setPlaying(false);
+      return;
+    }
+    if (autoContinueRef.current) {
+      setTimeout(() => playAdjacentRef.current(1), 500);
     }
   }
 
   function handleSongEnded() {
-    if (loopMode === 'one') {
+    // On swipe page: play the song once and stop, ignore all playback settings
+    if (isSwipePageRef.current) {
+      setPlaying(false);
+      return;
+    }
+    // Other pages: respect playback settings
+    const currentLoopMode = loopModeRef.current;
+    const currentAutoContinue = autoContinueRef.current;
+    if (currentLoopMode === 'one') {
       playerRef.current?.seekTo(0, true);
       playerRef.current?.playVideo();
-    } else if (autoContinue || loopMode === 'all') {
-      playAdjacentSong(1);
+    } else if (currentAutoContinue || currentLoopMode === 'all') {
+      playAdjacentRef.current(1);
     } else {
       setPlaying(false);
     }
@@ -382,14 +410,15 @@ export function MiniPlayer() {
 
   const loopLabel = t(`player.loop.${loopMode}`);
 
-  if (!currentVideoId || !currentSong) return <div id="yt-player" className="hidden" />;
+  const isVisible = !!(currentVideoId && currentSong);
 
   return (
     <>
       <div id="yt-player" className="fixed -top-[9999px] -left-[9999px] w-px h-px overflow-hidden" />
 
       <AnimatePresence>
-        <motion.div
+        {isVisible && <motion.div
+          key="miniplayer"
           className="fixed left-0 right-0 z-30 bg-surface-900/95 backdrop-blur-sm border-t border-surface-700"
           style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
           initial={{ y: 100 }}
@@ -400,11 +429,16 @@ export function MiniPlayer() {
           <div className="max-w-lg mx-auto px-3 py-2">
             {/* Song info row */}
             <div className="flex items-center gap-3 mb-2">
-              <img
-                src={getThumbnailUrl(currentSong.thumbnail, 'small')}
-                alt=""
-                className="w-10 h-10 rounded-lg object-cover bg-surface-700"
-                loading="eager"
+              <button
+                onClick={handleStop}
+                className="p-2.5 -ml-1 text-surface-400 hover:text-surface-200 transition-colors"
+                aria-label={t('player.stop')}
+              >
+                <X size={18} />
+              </button>
+              <MiniPlayerThumbnail
+                thumbnail={currentSong.thumbnail}
+                videoId={currentSong.videoId}
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-surface-100 truncate">
@@ -427,22 +461,13 @@ export function MiniPlayer() {
               )}
 
               {/* Controls */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={togglePlay}
-                  className="p-2 text-surface-200 hover:text-white transition-colors"
-                  aria-label={isPlaying ? t('player.pause') : t('player.play')}
-                >
-                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-                </button>
-                <button
-                  onClick={handleStop}
-                  className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
-                  aria-label={t('player.stop')}
-                >
-                  <X size={16} />
-                </button>
-              </div>
+              <button
+                onClick={togglePlay}
+                className="p-2 text-surface-200 hover:text-white transition-colors"
+                aria-label={isPlaying ? t('player.pause') : t('player.play')}
+              >
+                {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+              </button>
             </div>
 
             {/* Seek bar */}
@@ -541,8 +566,35 @@ export function MiniPlayer() {
               </div>
             )}
           </div>
-        </motion.div>
+        </motion.div>}
       </AnimatePresence>
     </>
+  );
+}
+
+function MiniPlayerThumbnail({ thumbnail, videoId }: { thumbnail?: string; videoId: string }) {
+  const [stage, setStage] = useState(0);
+  const src = stage === 0
+    ? getThumbnailUrl(thumbnail, 'small')
+    : stage === 1
+      ? getFallbackThumbnail(videoId, 'small')
+      : '';
+
+  if (!src || stage >= 2) {
+    return (
+      <div className="w-10 h-10 rounded-lg bg-surface-700 flex items-center justify-center shrink-0">
+        <Music size={18} className="text-surface-500" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className="w-10 h-10 rounded-lg object-cover bg-surface-700 shrink-0"
+      loading="eager"
+      onError={() => setStage((s) => s + 1)}
+    />
   );
 }
