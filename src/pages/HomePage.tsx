@@ -153,7 +153,7 @@ export default function HomePage() {
       {/* Feedback */}
       <div className="text-center">
         <a
-          href="mailto:feedback@peterbenceczaun.me?subject=Music%20Selector%20Feedback"
+          href="mailto:contact@peterbenceczaun.me?subject=Music%20Selector%20Feedback"
           className="inline-flex items-center gap-1.5 text-xs text-surface-500 hover:text-surface-300 transition-colors"
           rel="noopener noreferrer"
         >
