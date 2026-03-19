@@ -181,6 +181,7 @@ export default function MiniPlayer() {
   const initPlayer = useCallback(async (videoId: string, shouldPlay: boolean) => {
     activeVideoRef.current = videoId;
     loadingRef.current = true;
+    setPlaying(false); // Not confirmed playing until YT fires PLAYING
     setProgress(0);
     setDuration(0);
 
@@ -282,36 +283,17 @@ export default function MiniPlayer() {
   }, [currentVideoId]);
 
   useEffect(() => {
-    console.log('[MiniPlayer] isPlaying effect triggered:', { isPlaying, currentVideoId });
-    if (!playerRef.current) return;
+    // Skip while a new video is loading — onStateChange drives isPlaying during that phase
+    if (!playerRef.current || loadingRef.current) return;
     try {
       if (isPlaying && typeof playerRef.current.playVideo === 'function') {
-        console.log('[MiniPlayer] Calling playVideo()');
         playerRef.current.playVideo();
       } else if (!isPlaying && typeof playerRef.current.pauseVideo === 'function') {
-        console.log('[MiniPlayer] Calling pauseVideo()');
         playerRef.current.pauseVideo();
       }
     } catch (e) {
       console.error('[MiniPlayer] Error calling play/pause:', e);
     }
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
-      playerRef.current.setVolume(volume);
-    }
-  }, [volume]);
-
-  useEffect(() => {
-    if (!playerRef.current) return;
-    try {
-      if (isPlaying && typeof playerRef.current.playVideo === 'function') {
-        playerRef.current.playVideo();
-      } else if (!isPlaying && typeof playerRef.current.pauseVideo === 'function') {
-        playerRef.current.pauseVideo();
-      }
-    } catch { /* player not ready yet */ }
   }, [isPlaying]);
 
   const handleStop = () => {
