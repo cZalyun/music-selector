@@ -329,6 +329,13 @@ export default function MiniPlayer() {
   }, [currentVideoId]);
 
   useEffect(() => {
+    if (!playerRef.current) return;
+    try {
+      playerRef.current.setVolume(volume);
+    } catch { /* player not ready */ }
+  }, [volume]);
+
+  useEffect(() => {
     // Skip while a new video is loading — onStateChange drives isPlaying during that phase
     // Also skip if a gesture load is pending (we know it's coming)
     if (!playerRef.current || loadingRef.current || isGestureLoadPending()) return;
