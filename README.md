@@ -5,7 +5,6 @@
 ![ Vite ](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
 ![ PWA ](https://img.shields.io/badge/PWA-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
 ![ License ](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-![ Build ](https://img.shields.io/github/actions/workflow/status/czaunpeterbence/music-selector/deploy?style=flat-square&logo=github&label=build)
 
 > A mobile-first Progressive Web App for reviewing your YouTube Music liked songs with a Tinder-style swipe interface.
 
