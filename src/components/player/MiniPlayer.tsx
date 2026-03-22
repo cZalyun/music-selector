@@ -473,23 +473,23 @@ export function MiniPlayer() {
             </div>
 
             {/* Seek bar */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-5 mb-5">
               <span className="text-[10px] text-surface-500 w-8 text-right tabular-nums">
                 {formatTime(seeking ? seekValue : progress)}
               </span>
-              <input
-                type="range"
-                min={0}
-                max={duration || 1}
-                step={0.1}
-                value={seeking ? seekValue : progress}
-                onChange={(e) => handleSeekChange(parseFloat(e.target.value))}
-                onMouseUp={commitSeek}
-                onTouchStart={(e) => { e.stopPropagation(); setSeeking(true); }}
-                onTouchEnd={commitSeek}
-                className="flex-1 h-1 accent-accent-500 cursor-pointer touch-none"
-                aria-label="Seek"
-              />
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 1}
+                  step={0.1}
+                  value={seeking ? seekValue : progress}
+                  onChange={(e) => handleSeekChange(parseFloat(e.target.value))}
+                  onMouseUp={commitSeek}
+                  onTouchStart={(e) => { e.stopPropagation(); setSeeking(true); }}
+                  onTouchEnd={commitSeek}
+                  className="flex-1 h-1 accent-accent-500 cursor-pointer touch-none"
+                  aria-label="Seek"
+                />
               <span className="text-[10px] text-surface-500 w-8 tabular-nums">
                 {formatTime(duration)}
               </span>
@@ -576,11 +576,15 @@ export function MiniPlayer() {
 
 function MiniPlayerThumbnail({ thumbnail, videoId }: { thumbnail?: string; videoId: string }) {
   const [stage, setStage] = useState(0);
-  const src = stage === 0
+  let src = stage === 0
     ? getThumbnailUrl(thumbnail, 'small')
     : stage === 1
       ? getFallbackThumbnail(videoId, 'small')
       : '';
+
+    if (!src && stage === 0) {
+      src = getFallbackThumbnail(videoId, 'small');
+    }
 
   if (!src || stage >= 2) {
     return (

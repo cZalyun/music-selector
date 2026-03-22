@@ -11,6 +11,11 @@ export function getThumbnailUrl(
 ): string {
   if (!raw) return '';
 
+  // Detect placeholder image and return empty to trigger fallback
+  if (raw === 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7') {
+    return '';
+  }
+
   if (raw.includes('googleusercontent.com')) {
     const dims = size === 'large' ? THUMBNAIL_LARGE_GOOGLE : THUMBNAIL_SMALL_GOOGLE;
     return raw.replace(/=w\d+-h\d+/, `=${dims}`);
